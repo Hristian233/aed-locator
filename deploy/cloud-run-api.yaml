@@ -1,0 +1,39 @@
+# Example Cloud Run service for the API (adjust project/region)
+# Deploy: gcloud run services replace deploy/cloud-run-api.yaml --region=us-central1
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: aed-locator-api
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "20"
+        run.googleapis.com/cloudsql-instances: PROJECT:REGION:INSTANCE
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 60
+      containers:
+        - image: gcr.io/PROJECT_ID/aed-locator-api:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ENVIRONMENT
+              value: production
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aed-locator-secrets
+                  key: database_url
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aed-locator-secrets
+                  key: secret_key
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
