@@ -1,0 +1,17 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: aed-locator-web
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "10"
+    spec:
+      containers:
+        - image: gcr.io/PROJECT_ID/aed-locator-web:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: VITE_API_URL
+              value: https://aed-locator-api-XXXX.run.app

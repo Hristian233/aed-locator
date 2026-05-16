@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: aed
+      POSTGRES_PASSWORD: aed
+      POSTGRES_DB: aed_locator
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aed -d aed_locator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aed:aed@db:5432/aed_locator
+      SECRET_KEY: dev-secret-change-in-production
+      DEBUG: "true"
+      ENVIRONMENT: development
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
+      ADMIN_EMAILS: '["admin@aedlocator.local"]'
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  migrate:
+    build: ./backend
+    command: sh -c "alembic upgrade head && python scripts/seed.py"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aed:aed@db:5432/aed_locator
+      SECRET_KEY: dev-secret
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8080
+    ports:
+      - "3000:8080"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
