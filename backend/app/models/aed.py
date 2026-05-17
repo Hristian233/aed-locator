@@ -27,6 +27,10 @@ class ReportType(str, enum.Enum):
     duplicate = "duplicate"
 
 
+def _enum_values(enum_cls: type[enum.Enum]) -> list[str]:
+    return [member.value for member in enum_cls]
+
+
 class AED(Base):
     __tablename__ = "aeds"
 
@@ -44,11 +48,13 @@ class AED(Base):
         Enum(VerificationStatus), default=VerificationStatus.pending, index=True
     )
     accessibility_type: Mapped[AccessibilityType] = mapped_column(
-        Enum(AccessibilityType), default=AccessibilityType.always_open
+        Enum(AccessibilityType, values_callable=_enum_values),
+        default=AccessibilityType.always_open,
     )
     opening_hours: Mapped[str | None] = mapped_column(Text, nullable=True)
     report_type: Mapped[ReportType] = mapped_column(
-        Enum(ReportType), default=ReportType.new_location
+        Enum(ReportType, values_callable=_enum_values),
+        default=ReportType.new_location,
     )
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     related_aed_id: Mapped[int | None] = mapped_column(
