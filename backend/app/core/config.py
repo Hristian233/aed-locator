@@ -32,9 +32,7 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 5 * 1024 * 1024
     allowed_image_types: set[str] = {"image/jpeg", "image/png", "image/webp"}
 
-    maps_provider: Literal["google", "mapbox", "osm"] = "osm"
     google_maps_api_key: str = ""
-    mapbox_access_token: str = ""
 
     rate_limit_reports: str = "5/minute"
     duplicate_radius_meters: float = 25.0

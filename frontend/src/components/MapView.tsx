@@ -1,43 +1,35 @@
-import L from 'leaflet'
+import { InfoWindow, Map, Marker, useMap } from '@vis.gl/react-google-maps'
 import { useEffect, useMemo } from 'react'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import type { AED } from '../types'
+import { hasGoogleMapsApiKey } from '../lib/google-maps'
 
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+const DEFAULT_CENTER = { lat: -33.8688, lng: 151.2093 }
 
-const defaultIcon = L.icon({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-})
-L.Marker.prototype.options.icon = defaultIcon
-
-const aedIcon = L.divIcon({
-  className: '',
-  html: `<div style="background:#0d9488;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:12px;">+</div>`,
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-})
+const aedMarkerIcon: google.maps.Icon = {
+  url:
+    'data:image/svg+xml;charset=UTF-8,' +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28">' +
+        '<circle cx="14" cy="14" r="11" fill="#0d9488" stroke="white" stroke-width="3"/>' +
+        '<text x="14" y="18" text-anchor="middle" fill="white" font-size="12" font-weight="700">+</text>' +
+        '</svg>',
+    ),
+  scaledSize: { width: 28, height: 28 } as google.maps.Size,
+  anchor: { x: 14, y: 14 } as google.maps.Point,
+}
 
 function MapController({
   center,
   selectedId,
 }: {
-  center: [number, number]
+  center: google.maps.LatLngLiteral
   selectedId?: number
 }) {
   const map = useMap()
   useEffect(() => {
-    map.setView(center, map.getZoom())
-  }, [center, map])
-  useEffect(() => {
-    if (selectedId) map.panTo(center)
-  }, [selectedId, center, map])
+    if (!map) return
+    map.panTo(center)
+  }, [center, map, selectedId])
   return null
 }
 
@@ -49,46 +41,69 @@ interface MapViewProps {
   className?: string
 }
 
-export function MapView({ aeds, userPosition, selected, onSelect, className }: MapViewProps) {
-  const center = useMemo<[number, number]>(() => {
-    if (selected) return [selected.latitude, selected.longitude]
-    if (userPosition) return userPosition
-    if (aeds[0]) return [aeds[0].latitude, aeds[0].longitude]
-    return [-33.8688, 151.2093]
+function GoogleMapView({ aeds, userPosition, selected, onSelect, className }: MapViewProps) {
+  const center = useMemo<google.maps.LatLngLiteral>(() => {
+    if (selected) return { lat: selected.latitude, lng: selected.longitude }
+    if (userPosition) return { lat: userPosition[0], lng: userPosition[1] }
+    if (aeds[0]) return { lat: aeds[0].latitude, lng: aeds[0].longitude }
+    return DEFAULT_CENTER
   }, [selected, userPosition, aeds])
 
+  const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+
   return (
-    <MapContainer
+    <Map
+      className={className ?? 'h-full w-full'}
+      defaultCenter={DEFAULT_CENTER}
+      defaultZoom={14}
       center={center}
       zoom={14}
-      className={className ?? 'h-full w-full'}
-      scrollWheelZoom
+      gestureHandling="greedy"
+      mapId={mapId || undefined}
+      fullscreenControl={false}
+      mapTypeControl={false}
+      streetViewControl={false}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
       <MapController center={center} selectedId={selected?.id} />
       {userPosition && (
-        <Marker position={userPosition}>
-          <Popup>You are here</Popup>
-        </Marker>
+        <Marker position={{ lat: userPosition[0], lng: userPosition[1] }} title="You are here" />
       )}
       {aeds.map((aed) => (
         <Marker
           key={aed.id}
-          position={[aed.latitude, aed.longitude]}
-          icon={aedIcon}
-          eventHandlers={{ click: () => onSelect?.(aed) }}
-        >
-          <Popup>
-            <strong>{aed.address ?? `AED #${aed.id}`}</strong>
-            {aed.distance_meters != null && (
-              <p>{Math.round(aed.distance_meters)} m away</p>
-            )}
-          </Popup>
-        </Marker>
+          position={{ lat: aed.latitude, lng: aed.longitude }}
+          icon={aedMarkerIcon}
+          title={aed.address ?? `AED #${aed.id}`}
+          onClick={() => onSelect?.(aed)}
+        />
       ))}
-    </MapContainer>
+      {selected && (
+        <InfoWindow position={{ lat: selected.latitude, lng: selected.longitude }}>
+          <div className="text-sm text-slate-900">
+            <strong>{selected.address ?? `AED #${selected.id}`}</strong>
+            {selected.distance_meters != null && (
+              <p className="mt-1 text-slate-600">{Math.round(selected.distance_meters)} m away</p>
+            )}
+          </div>
+        </InfoWindow>
+      )}
+    </Map>
   )
+}
+
+export function MapView(props: MapViewProps) {
+  if (!hasGoogleMapsApiKey()) {
+    return (
+      <div
+        className={`flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-600 ${props.className ?? 'h-full w-full'}`}
+      >
+        <p>
+          Set <code className="rounded bg-slate-200 px-1">VITE_GOOGLE_MAPS_API_KEY</code> in{' '}
+          <code className="rounded bg-slate-200 px-1">frontend/.env</code> to load Google Maps.
+        </p>
+      </div>
+    )
+  }
+
+  return <GoogleMapView {...props} />
 }

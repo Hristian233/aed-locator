@@ -7,7 +7,7 @@ Production-oriented web application to find the nearest Automated External Defib
 ```
 ┌─────────────┐     HTTPS      ┌──────────────────┐     PostGIS    ┌─────────────┐
 │  React SPA  │ ─────────────► │  FastAPI (async) │ ─────────────► │ PostgreSQL  │
-│  Vite/Leaflet│               │  Clean layers    │                │  + PostGIS  │
+│ Vite/Google  │               │  Clean layers    │                │  + PostGIS  │
 └─────────────┘                └──────────────────┘                └─────────────┘
        │                                │
        │                                ├── JWT auth
@@ -29,7 +29,7 @@ Production-oriented web application to find the nearest Automated External Defib
 - **Verification workflow** — Public map shows only `verified` AEDs; submissions start as `pending`.
 - **MVP AI** — Heuristic image/spam/duplicate checks in `AIService`; swap for Vertex AI / Cloud Vision in production without changing API contracts.
 - **JWT auth** — Simple stateless tokens; Firebase Auth can replace `AuthService` later.
-- **Leaflet + OSM** — Zero API key for local dev; set `MAPS_PROVIDER` and frontend keys for Google/Mapbox in production.
+- **Google Maps** — Maps JavaScript API via `@vis.gl/react-google-maps`; set `VITE_GOOGLE_MAPS_API_KEY` for the frontend (and `GOOGLE_MAPS_API_KEY` on the API if you add server-side geocoding later).
 
 ## Quick start (Docker)
 
@@ -59,7 +59,7 @@ pip install -r requirements.txt
 # Start PostGIS locally, then:
 export DATABASE_URL=postgresql+asyncpg://aed:aed@localhost:5432/aed_locator
 alembic upgrade head
-python scripts/seed.py
+python scripts/seed.py   # run from backend/ (or use seed_sofia.sql via psql)
 uvicorn app.main:app --reload --port 8080
 ```
 
@@ -67,6 +67,8 @@ uvicorn app.main:app --reload --port 8080
 
 ```bash
 cd frontend
+cp .env.example .env
+# Add your Maps JavaScript API key to .env
 npm install
 npm run dev
 ```
@@ -96,7 +98,8 @@ Production secrets (GCP Secret Manager recommended):
 - `DATABASE_URL` — Cloud SQL connection string
 - `SECRET_KEY` — JWT signing key
 - `ADMIN_EMAILS` — comma-separated admin bootstrap emails
-- `GOOGLE_MAPS_API_KEY` / `MAPBOX_ACCESS_TOKEN` — optional map providers
+- `VITE_GOOGLE_MAPS_API_KEY` — Maps JavaScript API (frontend build)
+- `GOOGLE_MAPS_API_KEY` — optional server-side Maps / geocoding on the API
 
 ## GCP deployment (recommended path)
 
