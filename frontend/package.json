@@ -11,14 +11,16 @@
   },
   "dependencies": {
     "@vis.gl/react-google-maps": "^1.7.1",
+    "i18next": "^26.2.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-i18next": "^17.0.8",
     "react-router-dom": "^7.15.1"
   },
   "devDependencies": {
-    "@types/google.maps": "^3.58.1",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.0",
+    "@types/google.maps": "^3.58.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

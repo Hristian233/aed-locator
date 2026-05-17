@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AEDCard } from '../components/AEDCard'
 import { MapView } from '../components/MapView'
 import { CardSkeleton, MapSkeleton } from '../components/Skeleton'
 import { api } from '../lib/api'
+import { withDistancesFromUser } from '../lib/geo'
 import type { AED } from '../types'
 
 export function HomePage() {
+  const { t } = useTranslation()
   const [aeds, setAeds] = useState<AED[]>([])
   const [nearest, setNearest] = useState<AED[]>([])
   const [selected, setSelected] = useState<AED | null>(null)
@@ -37,7 +40,7 @@ export function HomePage() {
               }
             },
             () => {
-              if (!cancelled) setGeoError('Location unavailable — showing all verified AEDs.')
+              if (!cancelled) setGeoError(t('home.geoError'))
             },
             { enableHighAccuracy: true, timeout: 10000 },
           )
@@ -52,9 +55,20 @@ export function HomePage() {
     return () => {
       cancelled = true
     }
-  }, [loadNearest])
+  }, [loadNearest, t])
 
-  const displayList = nearest.length > 0 ? nearest : aeds
+  const displayList = useMemo(() => {
+    if (userPosition) {
+      const [lat, lon] = userPosition
+      if (nearest.length > 0) {
+        return withDistancesFromUser(nearest, lat, lon)
+      }
+      if (aeds.length > 0) {
+        return withDistancesFromUser(aeds, lat, lon)
+      }
+    }
+    return nearest.length > 0 ? nearest : aeds
+  }, [userPosition, nearest, aeds])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
@@ -77,16 +91,14 @@ export function HomePage() {
             if (userPosition) loadNearest(userPosition[0], userPosition[1])
           }}
         >
-          Find nearest
+          {t('home.findNearest')}
         </button>
       </section>
 
       <aside className="flex min-h-0 w-full flex-col overflow-hidden border-t border-slate-200 bg-slate-50 md:w-96 md:shrink-0 md:border-t-0 md:border-l">
         <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-3">
-          <h1 className="text-lg font-bold text-slate-900">Nearest AEDs</h1>
-          <p className="text-sm text-slate-500">
-            {geoError ?? 'Tap a marker or card for details and navigation.'}
-          </p>
+          <h1 className="text-lg font-bold text-slate-900">{t('home.title')}</h1>
+          <p className="text-sm text-slate-500">{geoError ?? t('home.hint')}</p>
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
           {loading ? (
@@ -95,7 +107,7 @@ export function HomePage() {
               <CardSkeleton />
             </>
           ) : displayList.length === 0 ? (
-            <p className="text-sm text-slate-600">No verified AEDs in this area yet.</p>
+            <p className="text-sm text-slate-600">{t('home.empty')}</p>
           ) : (
             displayList.map((aed) => (
               <AEDCard

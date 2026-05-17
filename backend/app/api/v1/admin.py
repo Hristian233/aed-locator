@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.deps import get_admin_user, get_aed_service
 from app.models.aed import VerificationStatus
 from app.models.user import User
-from app.schemas.aed import AEDListResponse, AEDResponse
+from app.schemas.aed import AEDListResponse, AEDResponse, AEDUpdate
 from app.services.aed_service import AEDService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -24,6 +24,19 @@ async def list_pending(
         status="pending",
         verified_only=False,
     )
+
+
+@router.patch("/aeds/{aed_id}", response_model=AEDResponse)
+async def update_aed(
+    aed_id: int,
+    payload: AEDUpdate,
+    aed_service: Annotated[AEDService, Depends(get_aed_service)],
+    _: Annotated[User, Depends(get_admin_user)],
+) -> AEDResponse:
+    result = await aed_service.update_aed(aed_id, payload)
+    if not result:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="AED not found")
+    return result
 
 
 @router.post("/aeds/{aed_id}/verify", response_model=AEDResponse)

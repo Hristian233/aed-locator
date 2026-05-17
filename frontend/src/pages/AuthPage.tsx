@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function AuthPage() {
+  const { t } = useTranslation()
   const { login, register } = useAuth()
   const navigate = useNavigate()
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -21,7 +23,7 @@ export function AuthPage() {
       else await register(email, password, fullName || undefined)
       navigate('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed')
+      setError(err instanceof Error ? err.message : t('auth.failed'))
     } finally {
       setLoading(false)
     }
@@ -30,16 +32,14 @@ export function AuthPage() {
   return (
     <div className="mx-auto max-w-md flex-1 overflow-y-auto p-6">
       <h1 className="text-2xl font-bold text-slate-900">
-        {mode === 'login' ? 'Sign in' : 'Create account'}
+        {mode === 'login' ? t('auth.signIn') : t('auth.createAccount')}
       </h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Save submissions and access admin tools when authorized.
-      </p>
+      <p className="mt-1 text-sm text-slate-600">{t('auth.subtitle')}</p>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         {mode === 'register' && (
           <label className="block">
-            <span className="text-sm font-medium">Full name</span>
+            <span className="text-sm font-medium">{t('auth.fullName')}</span>
             <input
               type="text"
               value={fullName}
@@ -49,7 +49,7 @@ export function AuthPage() {
           </label>
         )}
         <label className="block">
-          <span className="text-sm font-medium">Email</span>
+          <span className="text-sm font-medium">{t('auth.email')}</span>
           <input
             type="email"
             required
@@ -60,7 +60,7 @@ export function AuthPage() {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium">Password</span>
+          <span className="text-sm font-medium">{t('auth.password')}</span>
           <input
             type="password"
             required
@@ -83,7 +83,11 @@ export function AuthPage() {
           disabled={loading}
           className="w-full rounded-xl bg-teal-600 py-3 font-semibold text-white"
         >
-          {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Register'}
+          {loading
+            ? t('auth.pleaseWait')
+            : mode === 'login'
+              ? t('auth.signIn')
+              : t('auth.register')}
         </button>
       </form>
 
@@ -92,7 +96,7 @@ export function AuthPage() {
         className="mt-4 text-sm text-teal-700 underline"
         onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
       >
-        {mode === 'login' ? 'Need an account? Register' : 'Already have an account? Sign in'}
+        {mode === 'login' ? t('auth.toggleToRegister') : t('auth.toggleToLogin')}
       </button>
     </div>
   )

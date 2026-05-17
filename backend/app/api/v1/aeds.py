@@ -56,8 +56,13 @@ async def submit_aed(
     user: Annotated[User | None, Depends(get_current_user_optional)],
     latitude: float = Form(...),
     longitude: float = Form(...),
+    report_type: str = Form("new_location"),
     address: str | None = Form(None),
     description: str | None = Form(None),
+    accessibility_type: str = Form("24_7"),
+    opening_hours: str | None = Form(None),
+    contact_email: str | None = Form(None),
+    related_aed_id: int | None = Form(None),
     image: UploadFile | None = File(None),
 ) -> SubmissionResult:
     settings = get_settings()
@@ -74,12 +79,19 @@ async def submit_aed(
         image_content = await image.read()
         if len(image_content) > settings.max_upload_bytes:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Image too large")
+        if len(image_content) < 1024:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Image file is too small")
 
     data = AEDCreate(
         latitude=latitude,
         longitude=longitude,
         address=address,
         description=description,
+        accessibility_type=accessibility_type,  # type: ignore[arg-type]
+        opening_hours=opening_hours,
+        report_type=report_type,  # type: ignore[arg-type]
+        contact_email=contact_email or None,
+        related_aed_id=related_aed_id,
     )
     try:
         return await aed_service.submit_aed(

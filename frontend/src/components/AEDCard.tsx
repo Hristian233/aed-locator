@@ -1,5 +1,8 @@
+import { useTranslation } from 'react-i18next'
 import type { AED } from '../types'
 import { navigationUrl } from '../lib/api'
+import { estimateWalkMinutes } from '../lib/geo'
+import { AccessibilityBadge } from './AccessibilityBadge'
 
 interface AEDCardProps {
   aed: AED
@@ -7,14 +10,25 @@ interface AEDCardProps {
   onSelect?: (aed: AED) => void
 }
 
-function formatDistance(meters?: number | null) {
-  if (meters == null) return null
-  if (meters < 1000) return `${Math.round(meters)} m away`
-  return `${(meters / 1000).toFixed(1)} km away`
-}
-
 export function AEDCard({ aed, selected, onSelect }: AEDCardProps) {
-  const distance = formatDistance(aed.distance_meters)
+  const { t } = useTranslation()
+
+  const distanceLabel =
+    aed.distance_meters == null
+      ? null
+      : aed.distance_meters < 1000
+        ? t('aed.distanceMeters', { distance: Math.round(aed.distance_meters) })
+        : t('aed.distanceKm', { distance: (aed.distance_meters / 1000).toFixed(1) })
+
+  const walkLabel =
+    aed.distance_meters == null
+      ? null
+      : (() => {
+          const minutes = estimateWalkMinutes(aed.distance_meters!)
+          return minutes < 1 ? t('aed.walkLessThanMinute') : t('aed.walkMinutes', { minutes })
+        })()
+  const statusKey = `aed.status.${aed.verification_status}` as const
+  const title = aed.address ?? t('aed.fallbackName', { id: aed.id })
 
   return (
     <article
@@ -30,11 +44,17 @@ export function AEDCard({ aed, selected, onSelect }: AEDCardProps) {
       aria-pressed={selected}
     >
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="font-semibold text-slate-900">
-            {aed.address ?? `AED #${aed.id}`}
-          </h3>
-          {distance && <p className="text-sm font-medium text-teal-700">{distance}</p>}
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-semibold text-slate-900">{title}</h3>
+          {distanceLabel && (
+            <p className="mt-0.5 text-base font-semibold text-teal-700">{distanceLabel}</p>
+          )}
+          {walkLabel && distanceLabel && (
+            <p className="text-xs text-slate-500">{walkLabel}</p>
+          )}
+          <div className="mt-1.5">
+            <AccessibilityBadge aed={aed} compact />
+          </div>
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -43,21 +63,21 @@ export function AEDCard({ aed, selected, onSelect }: AEDCardProps) {
               : 'bg-amber-100 text-amber-800'
           }`}
         >
-          {aed.verification_status}
+          {t(statusKey, { defaultValue: aed.verification_status })}
         </span>
       </div>
       {aed.description && (
         <p className="mt-2 line-clamp-2 text-sm text-slate-600">{aed.description}</p>
       )}
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3">
         <a
           href={navigationUrl(aed.latitude, aed.longitude, aed.address ?? undefined)}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="flex-1 rounded-xl bg-teal-600 py-2.5 text-center text-sm font-semibold text-white hover:bg-teal-700"
+          className="block w-full rounded-xl bg-teal-600 py-2.5 text-center text-sm font-semibold text-white hover:bg-teal-700"
         >
-          Navigate
+          {t('aed.navigate')}
         </a>
       </div>
     </article>

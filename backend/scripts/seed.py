@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from app.core.security import get_password_hash
 from app.db.session import async_session_factory
-from app.models.aed import AED, VerificationStatus
+from app.models.aed import AED, AccessibilityType, VerificationStatus
 from app.models.user import User, UserRole
 
 # (latitude, longitude, address, description)
@@ -71,8 +71,23 @@ async def seed() -> None:
         reporter_id = reporter.scalar_one_or_none()
         submitter_id = reporter_id.id if reporter_id else None
 
-        for lat, lon, address, description in SAMPLE_AEDS:
+        accessibility_cycle = [
+            AccessibilityType.always_open,
+            AccessibilityType.business_hours,
+            AccessibilityType.restricted_access,
+        ]
+        business_hours_json = (
+            '{"mon":{"open":"08:00","close":"20:00"},'
+            '"tue":{"open":"08:00","close":"20:00"},'
+            '"wed":{"open":"08:00","close":"20:00"},'
+            '"thu":{"open":"08:00","close":"20:00"},'
+            '"fri":{"open":"08:00","close":"20:00"},'
+            '"sat":{"open":"10:00","close":"16:00"}}'
+        )
+
+        for index, (lat, lon, address, description) in enumerate(SAMPLE_AEDS):
             point = WKTElement(f"POINT({lon} {lat})", srid=4326)
+            access = accessibility_cycle[index % len(accessibility_cycle)]
             session.add(
                 AED(
                     location=point,
@@ -81,6 +96,8 @@ async def seed() -> None:
                     address=address,
                     description=description,
                     verification_status=VerificationStatus.verified,
+                    accessibility_type=access,
+                    opening_hours=business_hours_json if access == AccessibilityType.business_hours else None,
                     submitter_id=submitter_id,
                     ai_confidence=0.9,
                     spam_score=0.05,

@@ -1,3 +1,6 @@
+export type AccessibilityType = '24_7' | 'business_hours' | 'restricted_access'
+export type ReportType = 'new_location' | 'incorrect_info' | 'unavailable' | 'duplicate'
+
 export interface User {
   id: number
   email: string
@@ -14,6 +17,11 @@ export interface AED {
   description: string | null
   image_url: string | null
   verification_status: string
+  accessibility_type?: AccessibilityType
+  opening_hours?: string | null
+  report_type?: ReportType
+  contact_email?: string | null
+  related_aed_id?: number | null
   distance_meters?: number | null
   ai_confidence?: number | null
   created_at: string

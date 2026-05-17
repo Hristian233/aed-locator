@@ -1,9 +1,11 @@
 import { InfoWindow, Map, Marker, useMap } from '@vis.gl/react-google-maps'
 import { useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AED } from '../types'
 import { hasGoogleMapsApiKey } from '../lib/google-maps'
+import { AccessibilityBadge } from './AccessibilityBadge'
 
-const DEFAULT_CENTER = { lat: -33.8688, lng: 151.2093 }
+const DEFAULT_CENTER = { lat: 42.6977, lng: 23.3219 }
 
 const aedMarkerIcon: google.maps.Icon = {
   url:
@@ -42,6 +44,8 @@ interface MapViewProps {
 }
 
 function GoogleMapView({ aeds, userPosition, selected, onSelect, className }: MapViewProps) {
+  const { t } = useTranslation()
+
   const center = useMemo<google.maps.LatLngLiteral>(() => {
     if (selected) return { lat: selected.latitude, lng: selected.longitude }
     if (userPosition) return { lat: userPosition[0], lng: userPosition[1] }
@@ -66,24 +70,36 @@ function GoogleMapView({ aeds, userPosition, selected, onSelect, className }: Ma
     >
       <MapController center={center} selectedId={selected?.id} />
       {userPosition && (
-        <Marker position={{ lat: userPosition[0], lng: userPosition[1] }} title="You are here" />
+        <Marker
+          position={{ lat: userPosition[0], lng: userPosition[1] }}
+          title={t('home.youAreHere')}
+        />
       )}
       {aeds.map((aed) => (
         <Marker
           key={aed.id}
           position={{ lat: aed.latitude, lng: aed.longitude }}
           icon={aedMarkerIcon}
-          title={aed.address ?? `AED #${aed.id}`}
+          title={aed.address ?? t('aed.fallbackName', { id: aed.id })}
           onClick={() => onSelect?.(aed)}
         />
       ))}
       {selected && (
         <InfoWindow position={{ lat: selected.latitude, lng: selected.longitude }}>
-          <div className="text-sm text-slate-900">
-            <strong>{selected.address ?? `AED #${selected.id}`}</strong>
+          <div className="max-w-[200px] text-sm text-slate-900">
+            <strong>{selected.address ?? t('aed.fallbackName', { id: selected.id })}</strong>
             {selected.distance_meters != null && (
-              <p className="mt-1 text-slate-600">{Math.round(selected.distance_meters)} m away</p>
+              <p className="mt-1 font-medium text-teal-700">
+                {selected.distance_meters < 1000
+                  ? t('aed.distanceMeters', { distance: Math.round(selected.distance_meters) })
+                  : t('aed.distanceKm', {
+                      distance: (selected.distance_meters / 1000).toFixed(1),
+                    })}
+              </p>
             )}
+            <div className="mt-1">
+              <AccessibilityBadge aed={selected} compact />
+            </div>
           </div>
         </InfoWindow>
       )}
@@ -92,15 +108,14 @@ function GoogleMapView({ aeds, userPosition, selected, onSelect, className }: Ma
 }
 
 export function MapView(props: MapViewProps) {
+  const { t } = useTranslation()
+
   if (!hasGoogleMapsApiKey()) {
     return (
       <div
         className={`flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-600 ${props.className ?? 'h-full w-full'}`}
       >
-        <p>
-          Set <code className="rounded bg-slate-200 px-1">VITE_GOOGLE_MAPS_API_KEY</code> in{' '}
-          <code className="rounded bg-slate-200 px-1">frontend/.env</code> to load Google Maps.
-        </p>
+        <p>{t('maps.missingKey')}</p>
       </div>
     )
   }

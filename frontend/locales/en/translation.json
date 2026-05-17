@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "AED Locator",
+    "tagline": "Find the nearest defibrillator"
+  },
+  "nav": {
+    "map": "Map",
+    "report": "Report AED",
+    "admin": "Admin",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "language": {
+    "label": "Language",
+    "bg": "Български",
+    "en": "English"
+  },
+  "home": {
+    "title": "Nearest AEDs",
+    "hint": "Tap a marker or card for details and navigation.",
+    "findNearest": "Find nearest",
+    "geoError": "Location unavailable — showing all verified AEDs.",
+    "empty": "No verified AEDs in this area yet.",
+    "youAreHere": "You are here"
+  },
+  "aed": {
+    "fallbackName": "AED #{{id}}",
+    "navigate": "Navigate",
+    "distanceMeters": "{{distance}} m away",
+    "distanceKm": "{{distance}} km away",
+    "walkMinutes": "{{minutes}} min walk",
+    "walkLessThanMinute": "< 1 min walk",
+    "status": {
+      "verified": "Verified",
+      "pending": "Pending",
+      "rejected": "Rejected"
+    },
+    "accessibility": {
+      "24_7": "24/7 Access",
+      "openNow": "Open now",
+      "closed": "Currently closed",
+      "restricted": "Restricted access"
+    }
+  },
+  "report": {
+    "title": "Report AED",
+    "subtitle": "Help others in emergencies. Submissions are reviewed before appearing on the map.",
+    "typeLabel": "Report type",
+    "types": {
+      "new_location": "New AED location",
+      "incorrect_info": "Incorrect information",
+      "unavailable": "AED unavailable/damaged",
+      "duplicate": "Duplicate AED"
+    },
+    "useLocation": "Use my current location",
+    "locationCaptured": "Location: {{lat}}, {{lon}}",
+    "address": "Address (optional)",
+    "addressPlaceholder": "e.g. Lobby near elevators",
+    "description": "Description",
+    "descriptionPlaceholder": "Floor, building name, access notes...",
+    "relatedAed": "Existing AED ID (optional)",
+    "relatedAedPlaceholder": "e.g. 12",
+    "accessibility": "Accessibility",
+    "accessibilityTypes": {
+      "24_7": "24/7 — always accessible",
+      "business_hours": "Business hours",
+      "restricted_access": "Restricted access"
+    },
+    "openingHours": "Opening hours (JSON)",
+    "openingHoursPlaceholder": "{\"mon\":{\"open\":\"09:00\",\"close\":\"18:00\"}}",
+    "openingHoursHelp": "Required when accessibility is business hours.",
+    "photo": "Photo of AED",
+    "email": "Email for follow-up (optional)",
+    "emailPlaceholder": "you@example.com",
+    "submit": "Submit for verification",
+    "submitting": "Submitting…",
+    "successRedirect": "Report submitted. Returning to map…",
+    "errors": {
+      "geoUnsupported": "Geolocation is not supported on this device.",
+      "geoFailed": "Could not get your location. Enable location services.",
+      "locationRequired": "Please capture your location first.",
+      "submissionFailed": "Submission failed",
+      "imageTooSmall": "Image file is too small",
+      "imageType": "Invalid image type. Use JPEG, PNG, or WebP."
+    }
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "createAccount": "Create account",
+    "subtitle": "Save submissions and access admin tools when authorized.",
+    "fullName": "Full name",
+    "email": "Email",
+    "password": "Password",
+    "pleaseWait": "Please wait…",
+    "register": "Register",
+    "toggleToRegister": "Need an account? Register",
+    "toggleToLogin": "Already have an account? Sign in",
+    "failed": "Authentication failed"
+  },
+  "admin": {
+    "title": "Pending verifications",
+    "subtitle": "Review community AED reports before they go live.",
+    "empty": "No pending submissions.",
+    "aiConfidence": "AI confidence: {{percent}}%",
+    "submittedImage": "Submitted AED",
+    "verify": "Verify",
+    "reject": "Reject",
+    "loadFailed": "Failed to load",
+    "reportType": "Type: {{type}}",
+    "contactEmail": "Contact: {{email}}",
+    "accessibility": "Access: {{type}}",
+    "openingHours": "Opening hours"
+  },
+  "maps": {
+    "missingKey": "Set VITE_GOOGLE_MAPS_API_KEY in frontend/.env to load Google Maps."
+  },
+  "common": {
+    "loading": "Loading…",
+    "reload": "Reload",
+    "errorTitle": "Something went wrong",
+    "errorMessage": "Please refresh the page. If the problem continues, try again later."
+  }
+}
