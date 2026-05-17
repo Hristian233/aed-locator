@@ -60,7 +60,8 @@ pip install -r requirements.txt
 export DATABASE_URL=postgresql+asyncpg://aed:aed@localhost:5432/aed_locator
 alembic upgrade head
 python scripts/seed.py   # run from backend/ (or use seed_sofia.sql via psql)
-uvicorn app.main:app --reload --port 8080
+python -m uvicorn app.main:app --reload --port 8080
+# Windows: .\scripts\run.ps1
 ```
 
 **Frontend**

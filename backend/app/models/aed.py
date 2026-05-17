@@ -14,6 +14,23 @@ class VerificationStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+class AccessibilityType(str, enum.Enum):
+    always_open = "24_7"
+    business_hours = "business_hours"
+    restricted_access = "restricted_access"
+
+
+class ReportType(str, enum.Enum):
+    new_location = "new_location"
+    incorrect_info = "incorrect_info"
+    unavailable = "unavailable"
+    duplicate = "duplicate"
+
+
+def _enum_values(enum_cls: type[enum.Enum]) -> list[str]:
+    return [member.value for member in enum_cls]
+
+
 class AED(Base):
     __tablename__ = "aeds"
 
@@ -30,6 +47,19 @@ class AED(Base):
     verification_status: Mapped[VerificationStatus] = mapped_column(
         Enum(VerificationStatus), default=VerificationStatus.pending, index=True
     )
+    accessibility_type: Mapped[AccessibilityType] = mapped_column(
+        Enum(AccessibilityType, values_callable=_enum_values),
+        default=AccessibilityType.always_open,
+    )
+    opening_hours: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_type: Mapped[ReportType] = mapped_column(
+        Enum(ReportType, values_callable=_enum_values),
+        default=ReportType.new_location,
+    )
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    related_aed_id: Mapped[int | None] = mapped_column(
+        ForeignKey("aeds.id", ondelete="SET NULL"), nullable=True
+    )
     submitter_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     ai_confidence: Mapped[float | None] = mapped_column(nullable=True)
     spam_score: Mapped[float | None] = mapped_column(nullable=True)
@@ -41,3 +71,4 @@ class AED(Base):
     )
 
     submitter = relationship("User", back_populates="aed_submissions")
+    related_aed = relationship("AED", remote_side=[id], foreign_keys=[related_aed_id])

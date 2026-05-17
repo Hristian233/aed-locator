@@ -2,11 +2,12 @@ from geoalchemy2.elements import WKTElement
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.models.aed import AED, VerificationStatus
+from app.models.aed import AED, AccessibilityType, ReportType, VerificationStatus
 from app.models.user import User
 from app.repositories.aed_repository import AEDRepository
 from app.schemas.aed import AEDCreate, AEDListResponse, AEDResponse, AEDUpdate, SubmissionResult
 from app.services.ai_service import AIService
+from app.services.opening_hours import validate_opening_hours_json
 from app.services.storage_service import StorageService
 
 logger = get_logger(__name__)
@@ -21,6 +22,11 @@ def _to_response(aed: AED, distance_meters: float | None = None) -> AEDResponse:
         description=aed.description,
         image_url=aed.image_url,
         verification_status=aed.verification_status.value,
+        accessibility_type=aed.accessibility_type.value,
+        opening_hours=aed.opening_hours,
+        report_type=aed.report_type.value,
+        contact_email=aed.contact_email,
+        related_aed_id=aed.related_aed_id,
         distance_meters=distance_meters,
         ai_confidence=aed.ai_confidence,
         created_at=aed.created_at,
@@ -96,10 +102,23 @@ class AEDService:
         warnings: list[str] = []
         duplicate_of_id: int | None = None
 
+        opening_hours = validate_opening_hours_json(data.opening_hours)
+        if data.accessibility_type == "business_hours" and not opening_hours:
+            raise ValueError("Opening hours are required for business-hours accessibility.")
+
+        report_type = ReportType(data.report_type)
+        if report_type != ReportType.new_location and not data.description:
+            raise ValueError("Please provide details describing the issue.")
+
+        if report_type != ReportType.new_location and data.related_aed_id:
+            related = await self.aed_repo.get_by_id(data.related_aed_id)
+            if not related:
+                raise ValueError("Referenced AED was not found.")
+
         duplicate = await self.aed_repo.find_duplicate_nearby(
             data.latitude, data.longitude, settings.duplicate_radius_meters
         )
-        if duplicate:
+        if duplicate and report_type == ReportType.new_location:
             duplicate_of_id = duplicate.id
             warnings.append(
                 f"Another AED is already registered within {settings.duplicate_radius_meters}m."
@@ -130,12 +149,17 @@ class AEDService:
             description=data.description,
             image_url=image_url,
             verification_status=VerificationStatus.pending,
+            accessibility_type=AccessibilityType(data.accessibility_type),
+            opening_hours=opening_hours,
+            report_type=report_type,
+            contact_email=str(data.contact_email) if data.contact_email else None,
+            related_aed_id=data.related_aed_id,
             submitter_id=submitter.id if submitter else None,
             ai_confidence=ai_confidence,
             spam_score=spam.score,
         )
         created = await self.aed_repo.create(aed)
-        logger.info("aed_submitted", aed_id=created.id, warnings=warnings)
+        logger.info("aed_submitted", aed_id=created.id, report_type=report_type.value, warnings=warnings)
         return SubmissionResult(
             aed=_to_response(created),
             warnings=warnings,
@@ -160,5 +184,9 @@ class AEDService:
             aed.description = data.description
         if data.verification_status is not None:
             aed.verification_status = VerificationStatus(data.verification_status)
+        if data.accessibility_type is not None:
+            aed.accessibility_type = AccessibilityType(data.accessibility_type)
+        if data.opening_hours is not None:
+            aed.opening_hours = validate_opening_hours_json(data.opening_hours)
         updated = await self.aed_repo.update(aed)
         return _to_response(updated)

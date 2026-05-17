@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "AED Локатор",
+    "tagline": "Намерете най-близкия дефибрилатор"
+  },
+  "nav": {
+    "map": "Карта",
+    "report": "Докладвай AED",
+    "admin": "Админ",
+    "signIn": "Вход",
+    "signOut": "Изход"
+  },
+  "language": {
+    "label": "Език",
+    "bg": "Български",
+    "en": "English"
+  },
+  "home": {
+    "title": "Най-близки AED",
+    "hint": "Докоснете маркер или карта за детайли и навигация.",
+    "findNearest": "Намери най-близък",
+    "geoError": "Местоположението е недостъпно — показваме всички проверени AED.",
+    "empty": "Няма проверени AED в тази зона.",
+    "youAreHere": "Вие сте тук"
+  },
+  "aed": {
+    "fallbackName": "AED #{{id}}",
+    "navigate": "Навигация",
+    "distanceMeters": "{{distance}} м разстояние",
+    "distanceKm": "{{distance}} км разстояние",
+    "walkMinutes": "{{minutes}} мин пеша",
+    "walkLessThanMinute": "< 1 мин пеша",
+    "status": {
+      "verified": "Проверен",
+      "pending": "Чакащ",
+      "rejected": "Отхвърлен"
+    },
+    "accessibility": {
+      "24_7": "Достъп 24/7",
+      "openNow": "Отворено сега",
+      "closed": "Затворено в момента",
+      "restricted": "Ограничен достъп"
+    }
+  },
+  "report": {
+    "title": "Докладвай AED",
+    "subtitle": "Помогнете на другите при спешност. Докладите се преглеждат преди да се появят на картата.",
+    "typeLabel": "Тип доклад",
+    "types": {
+      "new_location": "Ново място на AED",
+      "incorrect_info": "Неточна информация",
+      "unavailable": "AED недостъпен/повреден",
+      "duplicate": "Дублиран AED"
+    },
+    "useLocation": "Използвай текущото ми местоположение",
+    "locationCaptured": "Местоположение: {{lat}}, {{lon}}",
+    "address": "Адрес (по избор)",
+    "addressPlaceholder": "напр. Фоайе до асансьорите",
+    "description": "Описание",
+    "descriptionPlaceholder": "Етаж, сграда, бележки за достъп...",
+    "relatedAed": "ID на съществуващ AED (по избор)",
+    "relatedAedPlaceholder": "напр. 12",
+    "accessibility": "Достъпност",
+    "accessibilityTypes": {
+      "24_7": "24/7 — винаги достъпен",
+      "business_hours": "Работно време",
+      "restricted_access": "Ограничен достъп"
+    },
+    "openingHours": "Работно време (JSON)",
+    "openingHoursPlaceholder": "{\"mon\":{\"open\":\"09:00\",\"close\":\"18:00\"}}",
+    "openingHoursHelp": "Задължително при достъп по работно време.",
+    "photo": "Снимка на AED",
+    "email": "Имейл за обратна връзка (по избор)",
+    "emailPlaceholder": "you@example.com",
+    "submit": "Изпрати за проверка",
+    "submitting": "Изпращане…",
+    "successRedirect": "Докладът е изпратен. Пренасочване към картата…",
+    "errors": {
+      "geoUnsupported": "Геолокацията не се поддържа на това устройство.",
+      "geoFailed": "Неуспешно определяне на местоположение. Активирайте услугите за локация.",
+      "locationRequired": "Първо уловете местоположението си.",
+      "submissionFailed": "Изпращането неуспешно",
+      "imageTooSmall": "Снимката е твърде малка",
+      "imageType": "Невалиден тип изображение. Използвайте JPEG, PNG или WebP."
+    }
+  },
+  "auth": {
+    "signIn": "Вход",
+    "createAccount": "Създай акаунт",
+    "subtitle": "Запазете докладите си и достъп до админ инструменти при оторизация.",
+    "fullName": "Пълно име",
+    "email": "Имейл",
+    "password": "Парола",
+    "pleaseWait": "Моля, изчакайте…",
+    "register": "Регистрация",
+    "toggleToRegister": "Нямате акаунт? Регистрирайте се",
+    "toggleToLogin": "Вече имате акаунт? Влезте",
+    "failed": "Неуспешна автентикация"
+  },
+  "admin": {
+    "title": "Чакащи проверки",
+    "subtitle": "Прегледайте общностни доклади преди да станат публични.",
+    "empty": "Няма чакащи доклади.",
+    "aiConfidence": "AI увереност: {{percent}}%",
+    "submittedImage": "Качена снимка",
+    "verify": "Потвърди",
+    "reject": "Отхвърли",
+    "loadFailed": "Зареждането неуспешно",
+    "reportType": "Тип: {{type}}",
+    "contactEmail": "Контакт: {{email}}",
+    "accessibility": "Достъп: {{type}}",
+    "openingHours": "Работно време"
+  },
+  "maps": {
+    "missingKey": "Задайте VITE_GOOGLE_MAPS_API_KEY в frontend/.env за зареждане на Google Maps."
+  },
+  "common": {
+    "loading": "Зареждане…",
+    "reload": "Презареди",
+    "errorTitle": "Нещо се обърка",
+    "errorMessage": "Моля, опреснете страницата. Ако проблемът продължава, опитайте по-късно."
+  }
+}
