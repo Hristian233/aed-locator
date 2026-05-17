@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { AED } from '../types'
 import { navigationUrl } from '../lib/api'
-import { estimateWalkMinutes, shouldShowDistance } from '../lib/geo'
+import { estimateWalkMinutes, shouldShowWalkMinutes } from '../lib/geo'
 import { AccessibilityBadge } from './AccessibilityBadge'
 
 interface AEDCardProps {
@@ -13,21 +13,20 @@ interface AEDCardProps {
 export function AEDCard({ aed, selected, onSelect }: AEDCardProps) {
   const { t } = useTranslation()
 
-  const showDistance =
-    aed.distance_meters != null && shouldShowDistance(aed.distance_meters)
+  const distanceLabel =
+    aed.distance_meters == null
+      ? null
+      : aed.distance_meters < 1000
+        ? t('aed.distanceMeters', { distance: Math.round(aed.distance_meters) })
+        : t('aed.distanceKm', { distance: (aed.distance_meters / 1000).toFixed(1) })
 
-  const distanceLabel = showDistance
-    ? aed.distance_meters! < 1000
-      ? t('aed.distanceMeters', { distance: Math.round(aed.distance_meters!) })
-      : t('aed.distanceKm', { distance: (aed.distance_meters! / 1000).toFixed(1) })
-    : null
-
-  const walkLabel = showDistance
-    ? (() => {
-        const minutes = estimateWalkMinutes(aed.distance_meters!)
-        return minutes < 1 ? t('aed.walkLessThanMinute') : t('aed.walkMinutes', { minutes })
-      })()
-    : null
+  const walkLabel =
+    aed.distance_meters != null && shouldShowWalkMinutes(aed.distance_meters)
+      ? (() => {
+          const minutes = estimateWalkMinutes(aed.distance_meters)
+          return minutes < 1 ? t('aed.walkLessThanMinute') : t('aed.walkMinutes', { minutes })
+        })()
+      : null
   const statusKey = `aed.status.${aed.verification_status}` as const
   const title = aed.address ?? t('aed.fallbackName', { id: aed.id })
 

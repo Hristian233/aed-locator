@@ -3,7 +3,6 @@ import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AED } from '../types'
 import { hasGoogleMapsApiKey } from '../lib/google-maps'
-import { shouldShowDistance } from '../lib/geo'
 import { AccessibilityBadge } from './AccessibilityBadge'
 
 const DEFAULT_CENTER = { lat: 42.6977, lng: 23.3219 }
@@ -88,8 +87,7 @@ function GoogleMapView({
         <InfoWindow position={{ lat: selected.latitude, lng: selected.longitude }}>
           <div className="max-w-[200px] text-sm text-slate-900">
             <strong>{selected.address ?? t('aed.fallbackName', { id: selected.id })}</strong>
-            {selected.distance_meters != null &&
-              shouldShowDistance(selected.distance_meters) && (
+            {selected.distance_meters != null && (
               <p className="mt-1 font-medium text-teal-700">
                 {selected.distance_meters < 1000
                   ? t('aed.distanceMeters', { distance: Math.round(selected.distance_meters) })
