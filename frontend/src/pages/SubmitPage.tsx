@@ -59,7 +59,7 @@ export function SubmitPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg flex-1 p-4 pb-12">
+    <div className="mx-auto max-w-lg flex-1 overflow-y-auto p-4 pb-12">
       <h1 className="text-2xl font-bold text-slate-900">Report an AED</h1>
       <p className="mt-1 text-sm text-slate-600">
         Help others in emergencies. Submissions are reviewed before appearing on the map.
