@@ -41,7 +41,7 @@ export function AdminPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl flex-1 p-4">
+    <div className="mx-auto max-w-2xl flex-1 overflow-y-auto p-4 pb-12">
       <h1 className="text-2xl font-bold text-slate-900">Pending verifications</h1>
       <p className="text-sm text-slate-600">Review community AED reports before they go live.</p>
 

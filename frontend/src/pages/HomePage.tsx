@@ -57,8 +57,8 @@ export function HomePage() {
   const displayList = nearest.length > 0 ? nearest : aeds
 
   return (
-    <div className="flex flex-1 flex-col md:flex-row">
-      <section className="relative h-[45vh] md:h-auto md:min-h-[calc(100vh-57px)] md:flex-1">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+      <section className="relative min-h-0 flex-1">
         {loading ? (
           <MapSkeleton />
         ) : (
@@ -81,14 +81,14 @@ export function HomePage() {
         </button>
       </section>
 
-      <aside className="flex w-full flex-col border-t border-slate-200 bg-slate-50 md:w-96 md:border-t-0 md:border-l">
-        <div className="border-b border-slate-200 bg-white px-4 py-3">
+      <aside className="flex min-h-0 w-full flex-col overflow-hidden border-t border-slate-200 bg-slate-50 md:w-96 md:shrink-0 md:border-t-0 md:border-l">
+        <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-3">
           <h1 className="text-lg font-bold text-slate-900">Nearest AEDs</h1>
           <p className="text-sm text-slate-500">
             {geoError ?? 'Tap a marker or card for details and navigation.'}
           </p>
         </div>
-        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
           {loading ? (
             <>
               <CardSkeleton />

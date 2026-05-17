@@ -8,8 +8,8 @@ export function Layout() {
   const { user, logout, isAdmin } = useAuth()
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="z-20 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <Link to="/" className="flex items-center gap-2 font-bold text-slate-900">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white">
@@ -45,7 +45,7 @@ export function Layout() {
           </nav>
         </div>
       </header>
-      <main className="flex flex-1 flex-col">
+      <main className="flex min-h-0 flex-1 flex-col">
         <Outlet />
       </main>
     </div>

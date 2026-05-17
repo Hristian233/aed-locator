@@ -10,5 +10,5 @@ export function CardSkeleton() {
 }
 
 export function MapSkeleton() {
-  return <div className="skeleton h-full min-h-[50vh] w-full rounded-none md:rounded-2xl" />
+  return <div className="skeleton h-full w-full" />
 }
