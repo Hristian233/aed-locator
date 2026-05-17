@@ -8,6 +8,7 @@ venv/
 # Environment
 .env
 .env.local
+/backend/.env.example
 
 # Build / runtime
 dist/
@@ -22,3 +23,6 @@ uploads/
 
 # Logs
 *.log
+
+# Scripts (local dev helpers)
+/backend/scripts/run.ps1
