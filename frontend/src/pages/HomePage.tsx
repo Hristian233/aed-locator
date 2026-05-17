@@ -14,6 +14,7 @@ export function HomePage() {
   const [selected, setSelected] = useState<AED | null>(null)
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null)
   const [loading, setLoading] = useState(true)
+  const [locationLoading, setLocationLoading] = useState(false)
   const [geoError, setGeoError] = useState<string | null>(null)
 
   const loadNearest = useCallback(async (lat: number, lon: number) => {
@@ -30,6 +31,7 @@ export function HomePage() {
         if (!cancelled) setAeds(list.items)
 
         if ('geolocation' in navigator) {
+          if (!cancelled) setLocationLoading(true)
           navigator.geolocation.getCurrentPosition(
             async (pos) => {
               const lat = pos.coords.latitude
@@ -37,10 +39,14 @@ export function HomePage() {
               if (!cancelled) {
                 setUserPosition([lat, lon])
                 await loadNearest(lat, lon)
+                setLocationLoading(false)
               }
             },
             () => {
-              if (!cancelled) setGeoError(t('home.geoError'))
+              if (!cancelled) {
+                setGeoError(t('home.geoError'))
+                setLocationLoading(false)
+              }
             },
             { enableHighAccuracy: true, timeout: 10000 },
           )
@@ -79,6 +85,7 @@ export function HomePage() {
           <MapView
             aeds={displayList}
             userPosition={userPosition}
+            locationLoading={locationLoading}
             selected={selected}
             onSelect={setSelected}
             className="h-full w-full"

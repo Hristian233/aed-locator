@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AED } from '../types'
 import { hasGoogleMapsApiKey } from '../lib/google-maps'
+import { shouldShowDistance } from '../lib/geo'
 import { AccessibilityBadge } from './AccessibilityBadge'
 
 const DEFAULT_CENTER = { lat: 42.6977, lng: 23.3219 }
@@ -20,55 +21,54 @@ const aedMarkerIcon: google.maps.Icon = {
   anchor: { x: 14, y: 14 } as google.maps.Point,
 }
 
-function MapController({
-  center,
-  selectedId,
-}: {
-  center: google.maps.LatLngLiteral
-  selectedId?: number
-}) {
+function MapController({ selected }: { selected?: AED | null }) {
   const map = useMap()
   useEffect(() => {
-    if (!map) return
-    map.panTo(center)
-  }, [center, map, selectedId])
+    if (!map || !selected) return
+    map.panTo({ lat: selected.latitude, lng: selected.longitude })
+  }, [map, selected?.id, selected?.latitude, selected?.longitude])
   return null
 }
 
 interface MapViewProps {
   aeds: AED[]
   userPosition: [number, number] | null
+  locationLoading?: boolean
   selected?: AED | null
   onSelect?: (aed: AED) => void
   className?: string
 }
 
-function GoogleMapView({ aeds, userPosition, selected, onSelect, className }: MapViewProps) {
+function GoogleMapView({
+  aeds,
+  userPosition,
+  locationLoading,
+  selected,
+  onSelect,
+  className,
+}: MapViewProps) {
   const { t } = useTranslation()
 
-  const center = useMemo<google.maps.LatLngLiteral>(() => {
-    if (selected) return { lat: selected.latitude, lng: selected.longitude }
-    if (userPosition) return { lat: userPosition[0], lng: userPosition[1] }
+  const initialCenter = useMemo<google.maps.LatLngLiteral>(() => {
     if (aeds[0]) return { lat: aeds[0].latitude, lng: aeds[0].longitude }
     return DEFAULT_CENTER
-  }, [selected, userPosition, aeds])
+  }, [aeds])
 
   const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
 
   return (
-    <Map
-      className={className ?? 'h-full w-full'}
-      defaultCenter={DEFAULT_CENTER}
-      defaultZoom={14}
-      center={center}
-      zoom={14}
-      gestureHandling="greedy"
-      mapId={mapId || undefined}
-      fullscreenControl={false}
-      mapTypeControl={false}
-      streetViewControl={false}
-    >
-      <MapController center={center} selectedId={selected?.id} />
+    <div className={`relative ${className ?? 'h-full w-full'}`}>
+      <Map
+        className="h-full w-full"
+        defaultCenter={initialCenter}
+        defaultZoom={14}
+        gestureHandling="greedy"
+        mapId={mapId || undefined}
+        fullscreenControl={false}
+        mapTypeControl={false}
+        streetViewControl={false}
+      >
+      <MapController selected={selected} />
       {userPosition && (
         <Marker
           position={{ lat: userPosition[0], lng: userPosition[1] }}
@@ -88,7 +88,8 @@ function GoogleMapView({ aeds, userPosition, selected, onSelect, className }: Ma
         <InfoWindow position={{ lat: selected.latitude, lng: selected.longitude }}>
           <div className="max-w-[200px] text-sm text-slate-900">
             <strong>{selected.address ?? t('aed.fallbackName', { id: selected.id })}</strong>
-            {selected.distance_meters != null && (
+            {selected.distance_meters != null &&
+              shouldShowDistance(selected.distance_meters) && (
               <p className="mt-1 font-medium text-teal-700">
                 {selected.distance_meters < 1000
                   ? t('aed.distanceMeters', { distance: Math.round(selected.distance_meters) })
@@ -104,6 +105,18 @@ function GoogleMapView({ aeds, userPosition, selected, onSelect, className }: Ma
         </InfoWindow>
       )}
     </Map>
+      {locationLoading && (
+        <div
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/70"
+          role="status"
+          aria-live="polite"
+          aria-label={t('home.locating')}
+        >
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-teal-600 border-t-transparent" />
+          <p className="text-sm font-medium text-slate-700">{t('home.locating')}</p>
+        </div>
+      )}
+    </div>
   )
 }
 

@@ -21,7 +21,8 @@
     "findNearest": "Find nearest",
     "geoError": "Location unavailable — showing all verified AEDs.",
     "empty": "No verified AEDs in this area yet.",
-    "youAreHere": "You are here"
+    "youAreHere": "You are here",
+    "locating": "Getting your location…"
   },
   "aed": {
     "fallbackName": "AED #{{id}}",
