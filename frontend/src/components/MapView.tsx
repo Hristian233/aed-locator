@@ -119,7 +119,7 @@ function GoogleMapView({
               </p>
             )}
             <div className="mt-1">
-              <AccessibilityBadge aed={selected} compact />
+              <AccessibilityBadge aed={selected} />
             </div>
           </div>
         </InfoWindow>

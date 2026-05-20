@@ -7,7 +7,11 @@ from app.models.user import User
 from app.repositories.aed_repository import AEDRepository
 from app.schemas.aed import AEDCreate, AEDListResponse, AEDResponse, AEDUpdate, SubmissionResult
 from app.services.ai_service import AIService
-from app.services.opening_hours import is_aed_available_now, validate_opening_hours_json
+from app.services.opening_hours import (
+    is_aed_available_now,
+    is_aed_reachable,
+    validate_opening_hours_json,
+)
 from app.services.storage_service import StorageService
 
 logger = get_logger(__name__)
@@ -94,7 +98,7 @@ class AEDService:
         )
         available: list[AEDResponse] = []
         for aed, dist in rows:
-            if is_aed_available_now(aed):
+            if is_aed_reachable(aed, distance_meters=dist):
                 available.append(_to_response(aed, dist))
             if len(available) >= limit:
                 break

@@ -4,6 +4,7 @@ import { AEDCard } from '../components/AEDCard'
 import { MapView } from '../components/MapView'
 import { CardSkeleton, MapSkeleton } from '../components/Skeleton'
 import { api } from '../lib/api'
+import { filterReachableAeds } from '../lib/reachability'
 import { withDistancesFromUser } from '../lib/geo'
 import type { AED } from '../types'
 
@@ -20,8 +21,10 @@ export function HomePage() {
 
   const loadNearest = useCallback(async (lat: number, lon: number) => {
     const results = await api.nearestAeds(lat, lon)
-    setNearest(results)
-    if (results[0]) setSelected(results[0])
+    const withDistance = withDistancesFromUser(results, lat, lon)
+    const reachable = filterReachableAeds(withDistance)
+    setNearest(reachable)
+    setSelected(reachable[0] ?? null)
   }, [])
 
   const handleSelectAed = useCallback((aed: AED) => {
@@ -71,17 +74,17 @@ export function HomePage() {
   }, [loadNearest, t])
 
   const displayList = useMemo(() => {
-    if (userPosition) {
-      const [lat, lon] = userPosition
-      if (nearest.length > 0) {
-        return withDistancesFromUser(nearest, lat, lon)
-      }
-      if (aeds.length > 0) {
-        return withDistancesFromUser(aeds, lat, lon)
-      }
-    }
-    return nearest.length > 0 ? nearest : aeds
+    const source = nearest.length > 0 ? nearest : aeds
+    const withDistance = userPosition
+      ? withDistancesFromUser(source, userPosition[0], userPosition[1])
+      : source
+    return filterReachableAeds(withDistance)
   }, [userPosition, nearest, aeds])
+
+  const selectedVisible = useMemo(
+    () => (selected && displayList.some((a) => a.id === selected.id) ? selected : null),
+    [selected, displayList],
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
@@ -93,7 +96,7 @@ export function HomePage() {
             aeds={displayList}
             userPosition={userPosition}
             locationLoading={locationLoading}
-            selected={selected}
+            selected={selectedVisible}
             panToSelection={panToSelection}
             onSelect={handleSelectAed}
             className="h-full w-full"
@@ -128,7 +131,7 @@ export function HomePage() {
               <AEDCard
                 key={aed.id}
                 aed={aed}
-                selected={selected?.id === aed.id}
+                selected={selectedVisible?.id === aed.id}
                 onSelect={handleSelectAed}
               />
             ))

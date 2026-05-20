@@ -39,9 +39,11 @@
     "accessibility": {
       "24_7": "24/7 Access",
       "openNow": "Open now",
+      "closingSoon": "Closing soon",
       "closed": "Currently closed",
       "restricted": "Restricted access"
-    }
+    },
+    "mayCloseBeforeArrival": "May become inaccessible before you arrive"
   },
   "report": {
     "title": "Report AED",

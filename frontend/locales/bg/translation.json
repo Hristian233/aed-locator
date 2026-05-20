@@ -39,9 +39,11 @@
     "accessibility": {
       "24_7": "Достъп 24/7",
       "openNow": "Отворено сега",
+      "closingSoon": "Скоро затваря",
       "closed": "Затворено в момента",
       "restricted": "Ограничен достъп"
-    }
+    },
+    "mayCloseBeforeArrival": "Може да стане недостъпен преди да пристигнете"
   },
   "report": {
     "title": "Докладвай AED",

@@ -1,10 +1,15 @@
-"""Validate opening hours JSON and evaluate whether an AED is reachable now."""
+"""Validate opening hours JSON and evaluate AED reachability (open now + ETA)."""
 
 import json
+import math
 from datetime import datetime
+from enum import Enum
 from typing import Any
 
 from app.models.aed import AED, AccessibilityType
+
+WALKING_SPEED_M_PER_MIN = 80
+ARRIVAL_BUFFER_MINUTES = 2
 
 VALID_DAYS = frozenset(
     {"mon", "tue", "wed", "thu", "fri", "sat", "sun", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
@@ -87,8 +92,64 @@ def _is_within_hours(period: dict[str, str], now: datetime) -> bool:
     return minutes >= open_m or minutes < close_m
 
 
+class ReachabilityStatus(str, Enum):
+    reachable = "reachable"
+    closing_soon = "closing_soon"
+    unreachable = "unreachable"
+
+
+def _estimate_walk_minutes(meters: float) -> int:
+    if meters <= 0:
+        return 0
+    return max(1, math.ceil(meters / WALKING_SPEED_M_PER_MIN))
+
+
+def _remaining_open_minutes(opening_hours: str | None, now: datetime) -> int | None:
+    period = _hours_for_today(opening_hours, now)
+    if not period or not _is_within_hours(period, now):
+        return None
+    minutes = now.hour * 60 + now.minute
+    open_m = _parse_time(period["open"])
+    close_m = _parse_time(period["close"])
+    if close_m > open_m:
+        return close_m - minutes
+    if minutes >= open_m:
+        return 24 * 60 - minutes + close_m
+    return close_m - minutes
+
+
+def get_reachability_status(
+    aed: AED,
+    *,
+    distance_meters: float | None = None,
+    now: datetime | None = None,
+) -> ReachabilityStatus:
+    now = now or datetime.now()
+    acc = aed.accessibility_type
+    if acc in (AccessibilityType.always_open, AccessibilityType.restricted_access):
+        return ReachabilityStatus.reachable
+
+    period = _hours_for_today(aed.opening_hours, now)
+    if not period or not _is_within_hours(period, now):
+        return ReachabilityStatus.unreachable
+
+    if distance_meters is None:
+        return ReachabilityStatus.reachable
+
+    remaining = _remaining_open_minutes(aed.opening_hours, now)
+    if remaining is None:
+        return ReachabilityStatus.unreachable
+
+    eta = _estimate_walk_minutes(distance_meters)
+    if eta >= remaining:
+        return ReachabilityStatus.unreachable
+    if eta + ARRIVAL_BUFFER_MINUTES >= remaining:
+        return ReachabilityStatus.closing_soon
+    return ReachabilityStatus.reachable
+
+
 def is_aed_available_now(aed: AED, now: datetime | None = None) -> bool:
-    """Whether the AED should appear on the public map right now."""
+    """Whether the venue is open right now (ignores travel time)."""
     now = now or datetime.now()
     acc = aed.accessibility_type
     if acc in (AccessibilityType.always_open, AccessibilityType.restricted_access):
@@ -97,3 +158,14 @@ def is_aed_available_now(aed: AED, now: datetime | None = None) -> bool:
     if not period:
         return False
     return _is_within_hours(period, now)
+
+
+def is_aed_reachable(
+    aed: AED,
+    distance_meters: float | None = None,
+    now: datetime | None = None,
+) -> bool:
+    return (
+        get_reachability_status(aed, distance_meters=distance_meters, now=now)
+        != ReachabilityStatus.unreachable
+    )
