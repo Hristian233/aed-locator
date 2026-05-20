@@ -22,7 +22,9 @@
     "geoError": "Location unavailable — showing all verified AEDs.",
     "empty": "No verified AEDs in this area yet.",
     "youAreHere": "You are here",
-    "locating": "Getting your location…"
+    "locating": "Getting your location…",
+    "myLocation": "My location",
+    "myLocationAria": "Update my location and refresh nearest AEDs"
   },
   "aed": {
     "fallbackName": "AED #{{id}}",
@@ -116,6 +118,12 @@
   },
   "maps": {
     "missingKey": "Set VITE_GOOGLE_MAPS_API_KEY in frontend/.env to load Google Maps."
+  },
+  "errors": {
+    "serverTitle": "Something went wrong",
+    "serverMessage": "We couldn't load AED locations right now. Please try again in a moment.",
+    "retry": "Try again",
+    "nearestFailed": "We couldn't refresh the nearest locations. Showing the last results we have."
   },
   "common": {
     "loading": "Loading…",
