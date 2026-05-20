@@ -7,7 +7,7 @@ from app.models.user import User
 from app.repositories.aed_repository import AEDRepository
 from app.schemas.aed import AEDCreate, AEDListResponse, AEDResponse, AEDUpdate, SubmissionResult
 from app.services.ai_service import AIService
-from app.services.opening_hours import validate_opening_hours_json
+from app.services.opening_hours import is_aed_available_now, validate_opening_hours_json
 from app.services.storage_service import StorageService
 
 logger = get_logger(__name__)
@@ -60,6 +60,9 @@ class AEDService:
             status=status_enum,
             verified_only=verified_only and status_enum is None,
         )
+        if verified_only and status_enum is None:
+            rows = [(aed, dist) for aed, dist in rows if is_aed_available_now(aed)]
+            total = len(rows)
         items = [_to_response(aed, dist) for aed, dist in rows]
         return AEDListResponse(
             items=items,
@@ -81,14 +84,21 @@ class AEDService:
         limit: int,
         max_distance_meters: float | None,
     ) -> list[AEDResponse]:
+        fetch_limit = min(limit * 5, 100)
         rows = await self.aed_repo.find_nearest(
             latitude,
             longitude,
-            limit=limit,
+            limit=fetch_limit,
             max_distance_meters=max_distance_meters,
             verified_only=True,
         )
-        return [_to_response(aed, dist) for aed, dist in rows]
+        available: list[AEDResponse] = []
+        for aed, dist in rows:
+            if is_aed_available_now(aed):
+                available.append(_to_response(aed, dist))
+            if len(available) >= limit:
+                break
+        return available
 
     async def submit_aed(
         self,
