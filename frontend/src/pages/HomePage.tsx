@@ -16,11 +16,17 @@ export function HomePage() {
   const [loading, setLoading] = useState(true)
   const [locationLoading, setLocationLoading] = useState(false)
   const [geoError, setGeoError] = useState<string | null>(null)
+  const [panToSelection, setPanToSelection] = useState(false)
 
   const loadNearest = useCallback(async (lat: number, lon: number) => {
     const results = await api.nearestAeds(lat, lon)
     setNearest(results)
     if (results[0]) setSelected(results[0])
+  }, [])
+
+  const handleSelectAed = useCallback((aed: AED) => {
+    setSelected(aed)
+    setPanToSelection(true)
   }, [])
 
   useEffect(() => {
@@ -37,6 +43,7 @@ export function HomePage() {
               const lat = pos.coords.latitude
               const lon = pos.coords.longitude
               if (!cancelled) {
+                setPanToSelection(false)
                 setUserPosition([lat, lon])
                 await loadNearest(lat, lon)
                 setLocationLoading(false)
@@ -87,7 +94,8 @@ export function HomePage() {
             userPosition={userPosition}
             locationLoading={locationLoading}
             selected={selected}
-            onSelect={setSelected}
+            panToSelection={panToSelection}
+            onSelect={handleSelectAed}
             className="h-full w-full"
           />
         )}
@@ -121,7 +129,7 @@ export function HomePage() {
                 key={aed.id}
                 aed={aed}
                 selected={selected?.id === aed.id}
-                onSelect={setSelected}
+                onSelect={handleSelectAed}
               />
             ))
           )}

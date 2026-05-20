@@ -20,12 +20,27 @@ const aedMarkerIcon: google.maps.Icon = {
   anchor: { x: 14, y: 14 } as google.maps.Point,
 }
 
-function MapController({ selected }: { selected?: AED | null }) {
+function MapController({
+  userPosition,
+  selected,
+  panToSelection,
+}: {
+  userPosition: [number, number] | null
+  selected?: AED | null
+  panToSelection: boolean
+}) {
   const map = useMap()
+
   useEffect(() => {
-    if (!map || !selected) return
+    if (!map || !userPosition) return
+    map.panTo({ lat: userPosition[0], lng: userPosition[1] })
+  }, [map, userPosition])
+
+  useEffect(() => {
+    if (!map || !selected || !panToSelection) return
     map.panTo({ lat: selected.latitude, lng: selected.longitude })
-  }, [map, selected?.id, selected?.latitude, selected?.longitude])
+  }, [map, selected?.id, selected?.latitude, selected?.longitude, panToSelection])
+
   return null
 }
 
@@ -34,6 +49,7 @@ interface MapViewProps {
   userPosition: [number, number] | null
   locationLoading?: boolean
   selected?: AED | null
+  panToSelection?: boolean
   onSelect?: (aed: AED) => void
   className?: string
 }
@@ -43,15 +59,17 @@ function GoogleMapView({
   userPosition,
   locationLoading,
   selected,
+  panToSelection = false,
   onSelect,
   className,
 }: MapViewProps) {
   const { t } = useTranslation()
 
   const initialCenter = useMemo<google.maps.LatLngLiteral>(() => {
+    if (userPosition) return { lat: userPosition[0], lng: userPosition[1] }
     if (aeds[0]) return { lat: aeds[0].latitude, lng: aeds[0].longitude }
     return DEFAULT_CENTER
-  }, [aeds])
+  }, [userPosition, aeds])
 
   const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
 
@@ -67,7 +85,11 @@ function GoogleMapView({
         mapTypeControl={false}
         streetViewControl={false}
       >
-      <MapController selected={selected} />
+      <MapController
+        userPosition={userPosition}
+        selected={selected}
+        panToSelection={panToSelection}
+      />
       {userPosition && (
         <Marker
           position={{ lat: userPosition[0], lng: userPosition[1] }}
