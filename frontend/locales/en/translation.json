@@ -18,13 +18,20 @@
   "home": {
     "title": "Nearest AEDs",
     "hint": "Tap a marker or card for details and navigation.",
-    "findNearest": "Find nearest",
+    "findNearest": "Find nearest AED",
+    "updateLocation": "Update location",
     "geoError": "Location unavailable — showing all verified AEDs.",
     "empty": "No verified AEDs in this area yet.",
+    "noNearestFound": "No reachable AED found nearby right now.",
     "youAreHere": "You are here",
     "locating": "Getting your location…",
-    "myLocation": "My location",
-    "myLocationAria": "Update my location and refresh nearest AEDs"
+    "myLocationAria": "Update my location",
+    "nearestPanelTitle": "Nearest AED",
+    "closePanel": "Close",
+    "distanceLabel": "Distance",
+    "etaLabel": "ETA",
+    "etaMinutes": "{{minutes}} min walk",
+    "availabilityLabel": "Availability"
   },
   "aed": {
     "fallbackName": "AED #{{id}}",

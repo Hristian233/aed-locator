@@ -18,13 +18,20 @@
   "home": {
     "title": "Най-близки AED",
     "hint": "Докоснете маркер или карта за детайли и навигация.",
-    "findNearest": "Намери най-близък",
+    "findNearest": "Намери най-близък AED",
+    "updateLocation": "Обнови местоположение",
     "geoError": "Местоположението е недостъпно — показваме всички проверени AED.",
     "empty": "Няма проверени AED в тази зона.",
+    "noNearestFound": "Няма достъпен AED наблизо в момента.",
     "youAreHere": "Вие сте тук",
     "locating": "Определяне на местоположението…",
-    "myLocation": "Моето място",
-    "myLocationAria": "Обнови местоположението и най-близките AED"
+    "myLocationAria": "Обнови местоположението",
+    "nearestPanelTitle": "Най-близък AED",
+    "closePanel": "Затвори",
+    "distanceLabel": "Разстояние",
+    "etaLabel": "Време",
+    "etaMinutes": "{{minutes}} мин пеша",
+    "availabilityLabel": "Достъпност"
   },
   "aed": {
     "fallbackName": "AED #{{id}}",

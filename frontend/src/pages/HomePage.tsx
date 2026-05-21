@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AEDCard } from '../components/AEDCard'
 import { ConnectionErrorView } from '../components/ConnectionErrorView'
 import { MapView } from '../components/MapView'
+import { NearestAedPanel } from '../components/NearestAedPanel'
 import { CardSkeleton, MapSkeleton } from '../components/Skeleton'
 import { api, isServerConnectionError } from '../lib/api'
 import { filterReachableAeds } from '../lib/reachability'
@@ -21,6 +22,8 @@ export function HomePage() {
   const [serverUnavailable, setServerUnavailable] = useState(false)
   const [nearestError, setNearestError] = useState<string | null>(null)
   const [panToSelection, setPanToSelection] = useState(false)
+  const [showNearestPanel, setShowNearestPanel] = useState(false)
+  const [findingNearest, setFindingNearest] = useState(false)
 
   const loadNearest = useCallback(async (lat: number, lon: number) => {
     try {
@@ -28,8 +31,8 @@ export function HomePage() {
       const withDistance = withDistancesFromUser(results, lat, lon)
       const reachable = filterReachableAeds(withDistance)
       setNearest(reachable)
-      setSelected(reachable[0] ?? null)
       setNearestError(null)
+      return reachable
     } catch (err) {
       if (isServerConnectionError(err)) {
         throw err
@@ -124,7 +127,31 @@ export function HomePage() {
   const handleSelectAed = useCallback((aed: AED) => {
     setSelected(aed)
     setPanToSelection(true)
+    setShowNearestPanel(false)
   }, [])
+
+  const handleFindNearest = useCallback(async () => {
+    if (!userPosition) return
+    setFindingNearest(true)
+    setShowNearestPanel(false)
+    try {
+      const reachable = await loadNearest(userPosition[0], userPosition[1])
+      if (reachable.length > 0) {
+        setSelected(reachable[0])
+        setPanToSelection(true)
+        setShowNearestPanel(true)
+      } else {
+        setSelected(null)
+        setNearestError(t('home.noNearestFound'))
+      }
+    } catch (err) {
+      if (isServerConnectionError(err)) {
+        setServerUnavailable(true)
+      }
+    } finally {
+      setFindingNearest(false)
+    }
+  }, [userPosition, loadNearest, t])
 
   const displayList = useMemo(() => {
     const source = nearest.length > 0 ? nearest : aeds
@@ -157,53 +184,37 @@ export function HomePage() {
             locationLoading={locationLoading}
             selected={selectedVisible}
             panToSelection={panToSelection}
+            suppressInfoWindow={showNearestPanel}
             onSelect={handleSelectAed}
             className="h-full w-full"
           />
         )}
+        {!loading && showNearestPanel && selectedVisible && (
+          <div className="absolute bottom-28 left-4 right-4 z-[1000] md:left-auto md:right-4 md:bottom-32">
+            <NearestAedPanel
+              aed={selectedVisible}
+              onClose={() => setShowNearestPanel(false)}
+            />
+          </div>
+        )}
         {!loading && (
-          <div className="absolute bottom-4 right-4 z-[1000] flex flex-col items-end gap-2">
+          <div className="absolute bottom-4 right-4 z-[1000] flex flex-col items-stretch gap-2 sm:items-end">
             <button
               type="button"
-              title={t('home.myLocation')}
               aria-label={t('home.myLocationAria')}
               disabled={locationLoading}
               onClick={refreshLocation}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-teal-700 shadow-lg ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-60"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="h-5 w-5"
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"
-                />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
+              {t('home.updateLocation')}
             </button>
             <button
               type="button"
-              className="rounded-full bg-white px-4 py-2 text-sm font-semibold shadow-lg ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-60"
-              disabled={!userPosition || locationLoading}
-              onClick={async () => {
-                if (!userPosition) return
-                try {
-                  await loadNearest(userPosition[0], userPosition[1])
-                } catch (err) {
-                  if (isServerConnectionError(err)) {
-                    setServerUnavailable(true)
-                  }
-                }
-              }}
+              className="rounded-full bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-teal-700 disabled:opacity-60"
+              disabled={!userPosition || locationLoading || findingNearest}
+              onClick={handleFindNearest}
             >
-              {t('home.findNearest')}
+              {findingNearest ? t('common.loading') : t('home.findNearest')}
             </button>
           </div>
         )}

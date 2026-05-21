@@ -50,6 +50,7 @@ interface MapViewProps {
   locationLoading?: boolean
   selected?: AED | null
   panToSelection?: boolean
+  suppressInfoWindow?: boolean
   onSelect?: (aed: AED) => void
   className?: string
 }
@@ -60,6 +61,7 @@ function GoogleMapView({
   locationLoading,
   selected,
   panToSelection = false,
+  suppressInfoWindow = false,
   onSelect,
   className,
 }: MapViewProps) {
@@ -105,7 +107,7 @@ function GoogleMapView({
           onClick={() => onSelect?.(aed)}
         />
       ))}
-      {selected && (
+      {selected && !suppressInfoWindow && (
         <InfoWindow position={{ lat: selected.latitude, lng: selected.longitude }}>
           <div className="max-w-[200px] text-sm text-slate-900">
             <strong>{selected.address ?? t('aed.fallbackName', { id: selected.id })}</strong>
