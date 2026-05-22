@@ -8,7 +8,9 @@
     "report": "Report AED",
     "admin": "Admin",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "menuOpen": "Open menu",
+    "menuClose": "Close menu"
   },
   "language": {
     "label": "Language",

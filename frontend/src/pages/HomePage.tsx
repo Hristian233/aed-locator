@@ -174,7 +174,7 @@ export function HomePage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
-      <section className="relative min-h-0 flex-1">
+      <section className="relative min-h-0 w-full flex-[1_1_50%] md:flex-1">
         {loading ? (
           <MapSkeleton />
         ) : (
@@ -190,7 +190,7 @@ export function HomePage() {
           />
         )}
         {!loading && showNearestPanel && selectedVisible && (
-          <div className="absolute bottom-28 left-4 right-4 z-[1000] md:left-auto md:right-4 md:bottom-32">
+          <div className="absolute bottom-20 left-3 right-3 z-[1000] max-h-[45%] overflow-y-auto md:bottom-32 md:left-auto md:right-4 md:max-h-none md:w-auto">
             <NearestAedPanel
               aed={selectedVisible}
               onClose={() => setShowNearestPanel(false)}
@@ -198,7 +198,7 @@ export function HomePage() {
           </div>
         )}
         {!loading && (
-          <div className="absolute bottom-4 right-4 z-[1000] flex flex-col items-stretch gap-2 sm:items-end">
+          <div className="absolute bottom-2 right-2 z-[1000] flex max-w-[calc(100%-1rem)] flex-col items-stretch gap-1.5 sm:bottom-4 sm:right-4 sm:gap-2 sm:items-end">
             <button
               type="button"
               aria-label={t('home.myLocationAria')}
@@ -220,7 +220,7 @@ export function HomePage() {
         )}
       </section>
 
-      <aside className="flex min-h-0 w-full flex-col overflow-hidden border-t border-slate-200 bg-slate-50 md:w-96 md:shrink-0 md:border-t-0 md:border-l">
+      <aside className="flex min-h-0 w-full flex-[1_1_50%] flex-col overflow-hidden border-t border-slate-200 bg-slate-50 md:w-96 md:max-w-96 md:flex-none md:shrink-0 md:grow-0 md:border-t-0 md:border-l">
         <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-3">
           <h1 className="text-lg font-bold text-slate-900">{t('home.title')}</h1>
           <p className="text-sm text-slate-500">{sidebarHint}</p>
