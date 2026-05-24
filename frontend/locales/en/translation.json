@@ -8,7 +8,9 @@
     "report": "Report AED",
     "admin": "Admin",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "menuOpen": "Open menu",
+    "menuClose": "Close menu"
   },
   "language": {
     "label": "Language",
@@ -18,10 +20,20 @@
   "home": {
     "title": "Nearest AEDs",
     "hint": "Tap a marker or card for details and navigation.",
-    "findNearest": "Find nearest",
+    "findNearest": "Find nearest AED",
+    "updateLocation": "Update location",
     "geoError": "Location unavailable — showing all verified AEDs.",
     "empty": "No verified AEDs in this area yet.",
-    "youAreHere": "You are here"
+    "noNearestFound": "No reachable AED found nearby right now.",
+    "youAreHere": "You are here",
+    "locating": "Getting your location…",
+    "myLocationAria": "Update my location",
+    "nearestPanelTitle": "Nearest AED",
+    "closePanel": "Close",
+    "distanceLabel": "Distance",
+    "etaLabel": "ETA",
+    "etaMinutes": "{{minutes}} min walk",
+    "availabilityLabel": "Availability"
   },
   "aed": {
     "fallbackName": "AED #{{id}}",
@@ -38,9 +50,11 @@
     "accessibility": {
       "24_7": "24/7 Access",
       "openNow": "Open now",
+      "closingSoon": "Closing soon",
       "closed": "Currently closed",
       "restricted": "Restricted access"
-    }
+    },
+    "mayCloseBeforeArrival": "May become inaccessible before you arrive"
   },
   "report": {
     "title": "Report AED",
@@ -113,6 +127,12 @@
   },
   "maps": {
     "missingKey": "Set VITE_GOOGLE_MAPS_API_KEY in frontend/.env to load Google Maps."
+  },
+  "errors": {
+    "serverTitle": "Something went wrong",
+    "serverMessage": "We couldn't load AED locations right now. Please try again in a moment.",
+    "retry": "Try again",
+    "nearestFailed": "We couldn't refresh the nearest locations. Showing the last results we have."
   },
   "common": {
     "loading": "Loading…",

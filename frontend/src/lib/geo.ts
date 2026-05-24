@@ -1,5 +1,11 @@
 const WALKING_SPEED_M_PER_MIN = 80
 
+export const MAX_DISPLAY_WALK_MINUTES = 15
+
+export function shouldShowWalkMinutes(meters: number): boolean {
+  return estimateWalkMinutes(meters) <= MAX_DISPLAY_WALK_MINUTES
+}
+
 export function haversineMeters(
   lat1: number,
   lon1: number,

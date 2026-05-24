@@ -2,24 +2,55 @@ import type { AED, AEDListResponse, AuthResponse, SubmissionResult } from '../ty
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
+export class ApiError extends Error {
+  readonly status: number
+  readonly isNetworkError: boolean
+
+  constructor(message: string, status: number, isNetworkError = false) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.isNetworkError = isNetworkError
+  }
+}
+
+export function isServerConnectionError(err: unknown): boolean {
+  if (err instanceof ApiError) {
+    return err.isNetworkError || err.status >= 500 || err.status === 0
+  }
+  return err instanceof TypeError
+}
+
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem('aed_token')
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...authHeaders(),
-      ...options.headers,
-    },
-  })
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+        ...authHeaders(),
+        ...options.headers,
+      },
+    })
+  } catch {
+    throw new ApiError('Unable to reach the server. Is the API running?', 0, true)
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
-    throw new Error(body.detail ?? body.message ?? `Request failed (${response.status})`)
+    const detail = body.detail ?? body.message ?? `Request failed (${response.status})`
+    const message =
+      response.status === 502
+        ? 'Bad gateway — the API server is not responding.'
+        : typeof detail === 'string'
+          ? detail
+          : String(detail)
+    throw new ApiError(message, response.status, response.status >= 500)
   }
 
   return response.json() as Promise<T>
