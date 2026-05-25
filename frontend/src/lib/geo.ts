@@ -1,4 +1,49 @@
+export type GeolocationFailureReason = 'unsupported' | 'denied' | 'unavailable' | 'timeout'
+
 const WALKING_SPEED_M_PER_MIN = 80
+
+export function getGeolocationFailureReason(
+  error: GeolocationPositionError,
+): GeolocationFailureReason {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      return 'denied'
+    case error.POSITION_UNAVAILABLE:
+      return 'unavailable'
+    case error.TIMEOUT:
+      return 'timeout'
+    default:
+      return 'unavailable'
+  }
+}
+
+export function requestUserLocation(): Promise<GeolocationCoordinates> {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) {
+      reject('unsupported' satisfies GeolocationFailureReason)
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos.coords),
+      (err) => reject(getGeolocationFailureReason(err)),
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
+  })
+}
+
+export async function getGeolocationPermissionState(): Promise<
+  PermissionState | 'unsupported'
+> {
+  if (!('geolocation' in navigator) || !navigator.permissions?.query) {
+    return 'unsupported'
+  }
+  try {
+    const result = await navigator.permissions.query({ name: 'geolocation' })
+    return result.state
+  } catch {
+    return 'unsupported'
+  }
+}
 
 export const MAX_DISPLAY_WALK_MINUTES = 15
 

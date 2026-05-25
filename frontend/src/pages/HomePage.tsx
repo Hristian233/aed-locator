@@ -7,7 +7,12 @@ import { NearestAedPanel } from '../components/NearestAedPanel'
 import { CardSkeleton, MapSkeleton } from '../components/Skeleton'
 import { api, isServerConnectionError } from '../lib/api'
 import { filterReachableAeds } from '../lib/reachability'
-import { withDistancesFromUser } from '../lib/geo'
+import {
+  getGeolocationPermissionState,
+  requestUserLocation,
+  withDistancesFromUser,
+  type GeolocationFailureReason,
+} from '../lib/geo'
 import type { AED } from '../types'
 
 export function HomePage() {
@@ -42,36 +47,48 @@ export function HomePage() {
     }
   }, [t])
 
-  const refreshLocation = useCallback(() => {
-    if (!('geolocation' in navigator)) {
-      setGeoError(t('home.geoError'))
-      return
-    }
+  const geoErrorMessage = useCallback(
+    (reason: GeolocationFailureReason) => {
+      switch (reason) {
+        case 'denied':
+          return t('home.geoDenied')
+        case 'timeout':
+          return t('home.geoTimeout')
+        default:
+          return t('home.geoError')
+      }
+    },
+    [t],
+  )
+
+  const applyUserLocation = useCallback(
+    async (lat: number, lon: number) => {
+      setPanToSelection(false)
+      setUserPosition([lat, lon])
+      setGeoError(null)
+      try {
+        await loadNearest(lat, lon)
+      } catch (err) {
+        if (isServerConnectionError(err)) {
+          setServerUnavailable(true)
+        }
+      }
+    },
+    [loadNearest],
+  )
+
+  const refreshLocation = useCallback(async () => {
     setLocationLoading(true)
     setGeoError(null)
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude
-        const lon = pos.coords.longitude
-        setPanToSelection(false)
-        setUserPosition([lat, lon])
-        try {
-          await loadNearest(lat, lon)
-        } catch (err) {
-          if (isServerConnectionError(err)) {
-            setServerUnavailable(true)
-          }
-        } finally {
-          setLocationLoading(false)
-        }
-      },
-      () => {
-        setGeoError(t('home.geoError'))
-        setLocationLoading(false)
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    )
-  }, [loadNearest, t])
+    try {
+      const coords = await requestUserLocation()
+      await applyUserLocation(coords.latitude, coords.longitude)
+    } catch (reason) {
+      setGeoError(geoErrorMessage(reason as GeolocationFailureReason))
+    } finally {
+      setLocationLoading(false)
+    }
+  }, [applyUserLocation, geoErrorMessage])
 
   const loadAeds = useCallback(async () => {
     const list = await api.listAeds()
@@ -85,30 +102,17 @@ export function HomePage() {
     setNearestError(null)
     try {
       await loadAeds()
-      if ('geolocation' in navigator) {
+      const permission = await getGeolocationPermissionState()
+      if (permission === 'granted') {
         setLocationLoading(true)
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            const lat = pos.coords.latitude
-            const lon = pos.coords.longitude
-            setPanToSelection(false)
-            setUserPosition([lat, lon])
-            try {
-              await loadNearest(lat, lon)
-            } catch (err) {
-              if (isServerConnectionError(err)) {
-                setServerUnavailable(true)
-              }
-            } finally {
-              setLocationLoading(false)
-            }
-          },
-          () => {
-            setGeoError(t('home.geoError'))
-            setLocationLoading(false)
-          },
-          { enableHighAccuracy: true, timeout: 10000 },
-        )
+        try {
+          const coords = await requestUserLocation()
+          await applyUserLocation(coords.latitude, coords.longitude)
+        } catch (reason) {
+          setGeoError(geoErrorMessage(reason as GeolocationFailureReason))
+        } finally {
+          setLocationLoading(false)
+        }
       }
     } catch (err) {
       console.error(err)
@@ -118,7 +122,7 @@ export function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [loadAeds, loadNearest, t])
+  }, [loadAeds, applyUserLocation, geoErrorMessage])
 
   useEffect(() => {
     init()
@@ -134,10 +138,15 @@ export function HomePage() {
     if (!userPosition) return
     setFindingNearest(true)
     setShowNearestPanel(false)
+    setNearestError(null)
     try {
-      const reachable = await loadNearest(userPosition[0], userPosition[1])
-      if (reachable.length > 0) {
-        setSelected(reachable[0])
+      const results = await api.nearestAeds(userPosition[0], userPosition[1], {
+        limit: 1,
+        reachableOnly: false,
+      })
+      if (results.length > 0) {
+        const [closest] = withDistancesFromUser(results, userPosition[0], userPosition[1])
+        setSelected(closest)
         setPanToSelection(true)
         setShowNearestPanel(true)
       } else {
@@ -147,11 +156,14 @@ export function HomePage() {
     } catch (err) {
       if (isServerConnectionError(err)) {
         setServerUnavailable(true)
+      } else {
+        console.error(err)
+        setNearestError(t('errors.nearestFailed'))
       }
     } finally {
       setFindingNearest(false)
     }
-  }, [userPosition, loadNearest, t])
+  }, [userPosition, t])
 
   const displayList = useMemo(() => {
     const source = nearest.length > 0 ? nearest : aeds
@@ -161,12 +173,20 @@ export function HomePage() {
     return filterReachableAeds(withDistance)
   }, [userPosition, nearest, aeds])
 
-  const selectedVisible = useMemo(
-    () => (selected && displayList.some((a) => a.id === selected.id) ? selected : null),
-    [selected, displayList],
-  )
+  const mapAeds = useMemo(() => {
+    if (!selected || displayList.some((aed) => aed.id === selected.id)) {
+      return displayList
+    }
+    return userPosition
+      ? withDistancesFromUser([selected, ...displayList], userPosition[0], userPosition[1])
+      : [selected, ...displayList]
+  }, [displayList, selected, userPosition])
 
-  const sidebarHint = serverUnavailable ? null : nearestError ?? geoError ?? t('home.hint')
+  const selectedVisible = selected
+
+  const sidebarHint = serverUnavailable
+    ? null
+    : nearestError ?? geoError ?? (userPosition ? t('home.hint') : t('home.noLocationHint'))
 
   if (!loading && serverUnavailable) {
     return <ConnectionErrorView onRetry={init} />
@@ -179,7 +199,7 @@ export function HomePage() {
           <MapSkeleton />
         ) : (
           <MapView
-            aeds={displayList}
+            aeds={mapAeds}
             userPosition={userPosition}
             locationLoading={locationLoading}
             selected={selectedVisible}
@@ -198,19 +218,19 @@ export function HomePage() {
           </div>
         )}
         {!loading && (
-          <div className="absolute bottom-2 right-2 z-[1000] flex max-w-[calc(100%-1rem)] flex-col items-stretch gap-1.5 sm:bottom-4 sm:right-4 sm:gap-2 sm:items-end">
+          <div className="absolute bottom-2 right-2 z-[1000] flex max-w-[calc(100%-1rem)] flex-col items-stretch gap-1.5 sm:bottom-4 sm:right-4 sm:gap-2">
             <button
               type="button"
-              aria-label={t('home.myLocationAria')}
+              aria-label={userPosition ? t('home.myLocationAria') : t('home.shareLocationAria')}
               disabled={locationLoading}
               onClick={refreshLocation}
-              className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-60"
+              className="w-full rounded-full bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-800 shadow-lg ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-60"
             >
-              {t('home.updateLocation')}
+              {userPosition ? t('home.updateLocation') : t('home.shareLocation')}
             </button>
             <button
               type="button"
-              className="rounded-full bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-teal-700 disabled:opacity-60"
+              className="w-full rounded-full bg-teal-600 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-lg hover:bg-teal-700 disabled:opacity-60"
               disabled={!userPosition || locationLoading || findingNearest}
               onClick={handleFindNearest}
             >

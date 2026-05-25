@@ -76,10 +76,28 @@ export const api = {
   listAeds: (page = 1, pageSize = 100) =>
     request<AEDListResponse>(`/api/v1/aeds?page=${page}&page_size=${pageSize}`),
 
-  nearestAeds: (lat: number, lon: number, limit = 20) =>
-    request<AED[]>(
-      `/api/v1/aeds/nearest?latitude=${lat}&longitude=${lon}&limit=${limit}&max_distance_meters=10000`,
-    ),
+  nearestAeds: (
+    lat: number,
+    lon: number,
+    options: {
+      limit?: number
+      maxDistanceMeters?: number | null
+      reachableOnly?: boolean
+    } = {},
+  ) => {
+    const params = new URLSearchParams({
+      latitude: String(lat),
+      longitude: String(lon),
+      limit: String(options.limit ?? 20),
+    })
+    if (options.maxDistanceMeters != null) {
+      params.set('max_distance_meters', String(options.maxDistanceMeters))
+    }
+    if (options.reachableOnly === false) {
+      params.set('reachable_only', 'false')
+    }
+    return request<AED[]>(`/api/v1/aeds/nearest?${params}`)
+  },
 
   submitAed: (form: FormData) =>
     request<SubmissionResult>('/api/v1/aeds', { method: 'POST', body: form }),
