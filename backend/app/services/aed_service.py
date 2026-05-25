@@ -87,8 +87,9 @@ class AEDService:
         *,
         limit: int,
         max_distance_meters: float | None,
+        reachable_only: bool = True,
     ) -> list[AEDResponse]:
-        fetch_limit = min(limit * 5, 100)
+        fetch_limit = limit if not reachable_only else min(limit * 5, 100)
         rows = await self.aed_repo.find_nearest(
             latitude,
             longitude,
@@ -96,6 +97,9 @@ class AEDService:
             max_distance_meters=max_distance_meters,
             verified_only=True,
         )
+        if not reachable_only:
+            return [_to_response(aed, dist) for aed, dist in rows[:limit]]
+
         available: list[AEDResponse] = []
         for aed, dist in rows:
             if is_aed_reachable(aed, distance_meters=dist):

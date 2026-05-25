@@ -34,6 +34,7 @@ async def nearest_aeds(
         query.longitude,
         limit=query.limit,
         max_distance_meters=query.max_distance_meters,
+        reachable_only=query.reachable_only,
     )
 
 

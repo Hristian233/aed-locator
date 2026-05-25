@@ -58,7 +58,8 @@ class NearestAEDQuery(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     limit: int = Field(default=20, ge=1, le=50)
-    max_distance_meters: float | None = Field(default=10000, ge=100, le=50000)
+    max_distance_meters: float | None = Field(default=None, ge=100, le=50000)
+    reachable_only: bool = True
 
 
 class SubmissionResult(BaseModel):
