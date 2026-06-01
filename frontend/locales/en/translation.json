@@ -106,7 +106,8 @@
       "sat": "Saturday",
       "sun": "Sunday"
     },
-    "photo": "Photo of AED",
+    "photo": "Photo of AED (optional)",
+    "photoRequired": "Photo of AED (required)",
     "email": "Email for follow-up (optional)",
     "emailPlaceholder": "you@example.com",
     "submit": "Submit for verification",
@@ -115,11 +116,12 @@
     "errors": {
       "geoUnsupported": "Geolocation is not supported on this device.",
       "geoFailed": "Could not get your location. Enable location services.",
-      "locationRequired": "Please capture your location first.",
+      "locationRequired": "Please capture your location.",
       "accessibilityRequired": "Please select an accessibility option.",
       "openingHoursRequired": "Please enter opening hours for at least one day.",
       "openingHoursIncomplete": "Each day needs both open and close times selected, or leave both as —.",
       "submissionFailed": "Submission failed",
+      "imageRequired": "Please upload at least one photo of the AED.",
       "imageTooSmall": "Image file is too small",
       "imageType": "Invalid image type. Use JPEG, PNG, or WebP."
     }
