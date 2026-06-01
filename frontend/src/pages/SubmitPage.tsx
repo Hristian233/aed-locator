@@ -192,6 +192,10 @@ export function SubmitPage() {
       setError(t('report.errors.locationRequired'))
       return
     }
+    if (reportType === 'new_location' && !image) {
+      setError(t('report.errors.imageRequired'))
+      return
+    }
     const imageError = validateImage(image)
     if (imageError) {
       setError(imageError)
@@ -410,11 +414,14 @@ export function SubmitPage() {
         )}
 
         <label className="block">
-          <span className="text-sm font-medium text-slate-700">{t('report.photo')}</span>
+          <span className="text-sm font-medium text-slate-700">
+            {reportType === 'new_location' ? t('report.photoRequired') : t('report.photo')}
+          </span>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
             capture="environment"
+            required={reportType === 'new_location'}
             onChange={(e) => {
               const file = e.target.files?.[0] ?? null
               setImage(file)
