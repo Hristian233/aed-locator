@@ -125,6 +125,8 @@ class AEDService:
             raise ValueError("Opening hours are required for business-hours accessibility.")
 
         report_type = ReportType(data.report_type)
+        if report_type == ReportType.new_location and not image_content:
+            raise ValueError("At least one photo is required for new AED submissions.")
         if report_type != ReportType.new_location and not data.description:
             raise ValueError("Please provide details describing the issue.")
 
