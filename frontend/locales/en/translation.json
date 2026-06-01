@@ -71,10 +71,11 @@
       "unavailable": "AED unavailable/damaged",
       "duplicate": "Duplicate AED"
     },
-    "useLocation": "Use my current location",
+    "useLocation": "Use my current location*",
+    "locationOnSiteHint": "*You must be at the defibrillator's location. Remote submission is not supported.",
     "locationCaptured": "Location: {{lat}}, {{lon}}",
     "address": "Address (optional)",
-    "addressPlaceholder": "e.g. Lobby near elevators",
+    "addressPlaceholder": "e.g. Ivan Vasov str. # 10",
     "description": "Description",
     "descriptionPlaceholder": "Floor, building name, access notes...",
     "relatedAed": "Existing AED ID (optional)",
