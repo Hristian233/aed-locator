@@ -298,6 +298,11 @@ export function SubmitPage() {
                 })
               : t('report.useLocation')}
           </button>
+          {reportType === 'new_location' && (
+            <p className="mt-2 text-center text-sm text-slate-500">
+              {t('report.locationOnSiteHint')}
+            </p>
+          )}
         </div>
 
         {(reportType === 'incorrect_info' ||
@@ -447,7 +452,7 @@ export function SubmitPage() {
         <button
           type="submit"
           disabled={loading || submitted}
-          className="w-full rounded-xl bg-teal-600 py-3 font-semibold text-white disabled:opacity-60"
+          className="w-full cursor-pointer rounded-xl bg-teal-600 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? t('report.submitting') : t('report.submit')}
         </button>
