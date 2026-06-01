@@ -1,58 +1,64 @@
-import { InfoWindow, Map, Marker, useMap } from '@vis.gl/react-google-maps'
-import { useEffect, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
-import type { AED } from '../types'
-import { hasGoogleMapsApiKey } from '../lib/google-maps'
-import { AccessibilityBadge } from './AccessibilityBadge'
+import { InfoWindow, Map, Marker, useMap } from "@vis.gl/react-google-maps";
+import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import type { AED } from "../types";
+import { hasGoogleMapsApiKey } from "../lib/google-maps";
+import { AccessibilityBadge } from "./AccessibilityBadge";
 
-const DEFAULT_CENTER = { lat: 42.6977, lng: 23.3219 }
+const DEFAULT_CENTER = { lat: 42.6977, lng: 23.3219 };
 
 const aedMarkerIcon: google.maps.Icon = {
   url:
-    'data:image/svg+xml;charset=UTF-8,' +
+    "data:image/svg+xml;charset=UTF-8," +
     encodeURIComponent(
       '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28">' +
         '<circle cx="14" cy="14" r="11" fill="#0d9488" stroke="white" stroke-width="3"/>' +
         '<text x="14" y="18" text-anchor="middle" fill="white" font-size="12" font-weight="700">+</text>' +
-        '</svg>',
+        "</svg>",
     ),
   scaledSize: { width: 28, height: 28 } as google.maps.Size,
   anchor: { x: 14, y: 14 } as google.maps.Point,
-}
+};
 
 function MapController({
   userPosition,
   selected,
   panToSelection,
 }: {
-  userPosition: [number, number] | null
-  selected?: AED | null
-  panToSelection: boolean
+  userPosition: [number, number] | null;
+  selected?: AED | null;
+  panToSelection: boolean;
 }) {
-  const map = useMap()
+  const map = useMap();
 
   useEffect(() => {
-    if (!map || !userPosition) return
-    map.panTo({ lat: userPosition[0], lng: userPosition[1] })
-  }, [map, userPosition])
+    if (!map || !userPosition) return;
+    map.panTo({ lat: userPosition[0], lng: userPosition[1] });
+  }, [map, userPosition]);
 
   useEffect(() => {
-    if (!map || !selected || !panToSelection) return
-    map.panTo({ lat: selected.latitude, lng: selected.longitude })
-  }, [map, selected?.id, selected?.latitude, selected?.longitude, panToSelection])
+    if (!map || !selected || !panToSelection) return;
+    map.panTo({ lat: selected.latitude, lng: selected.longitude });
+  }, [
+    map,
+    selected?.id,
+    selected?.latitude,
+    selected?.longitude,
+    panToSelection,
+  ]);
 
-  return null
+  return null;
 }
 
 interface MapViewProps {
-  aeds: AED[]
-  userPosition: [number, number] | null
-  locationLoading?: boolean
-  selected?: AED | null
-  panToSelection?: boolean
-  suppressInfoWindow?: boolean
-  onSelect?: (aed: AED) => void
-  className?: string
+  aeds: AED[];
+  userPosition: [number, number] | null;
+  locationLoading?: boolean;
+  selected?: AED | null;
+  panToSelection?: boolean;
+  suppressInfoWindow?: boolean;
+  onSelect?: (aed: AED) => void;
+  className?: string;
 }
 
 function GoogleMapView({
@@ -65,18 +71,18 @@ function GoogleMapView({
   onSelect,
   className,
 }: MapViewProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
 
   const initialCenter = useMemo<google.maps.LatLngLiteral>(() => {
-    if (userPosition) return { lat: userPosition[0], lng: userPosition[1] }
-    if (aeds[0]) return { lat: aeds[0].latitude, lng: aeds[0].longitude }
-    return DEFAULT_CENTER
-  }, [userPosition, aeds])
+    if (userPosition) return { lat: userPosition[0], lng: userPosition[1] };
+    if (aeds[0]) return { lat: aeds[0].latitude, lng: aeds[0].longitude };
+    return DEFAULT_CENTER;
+  }, [userPosition, aeds]);
 
-  const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+  const mapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID;
 
   return (
-    <div className={`relative ${className ?? 'h-full w-full'}`}>
+    <div className={`relative ${className ?? "h-full w-full"}`}>
       <Map
         className="h-full w-full"
         defaultCenter={initialCenter}
@@ -87,73 +93,86 @@ function GoogleMapView({
         mapTypeControl={false}
         streetViewControl={false}
       >
-      <MapController
-        userPosition={userPosition}
-        selected={selected}
-        panToSelection={panToSelection}
-      />
-      {userPosition && (
-        <Marker
-          position={{ lat: userPosition[0], lng: userPosition[1] }}
-          title={t('home.youAreHere')}
+        <MapController
+          userPosition={userPosition}
+          selected={selected}
+          panToSelection={panToSelection}
         />
-      )}
-      {aeds.map((aed) => (
-        <Marker
-          key={aed.id}
-          position={{ lat: aed.latitude, lng: aed.longitude }}
-          icon={aedMarkerIcon}
-          title={aed.address ?? t('aed.fallbackName', { id: aed.id })}
-          onClick={() => onSelect?.(aed)}
-        />
-      ))}
-      {selected && !suppressInfoWindow && (
-        <InfoWindow position={{ lat: selected.latitude, lng: selected.longitude }}>
-          <div className="max-w-[200px] text-sm text-slate-900">
-            <strong>{selected.address ?? t('aed.fallbackName', { id: selected.id })}</strong>
-            {selected.distance_meters != null && (
-              <p className="mt-1 font-medium text-teal-700">
-                {selected.distance_meters < 1000
-                  ? t('aed.distanceMeters', { distance: Math.round(selected.distance_meters) })
-                  : t('aed.distanceKm', {
-                      distance: (selected.distance_meters / 1000).toFixed(1),
-                    })}
-              </p>
-            )}
-            <div className="mt-1">
-              <AccessibilityBadge aed={selected} />
+        {userPosition && (
+          <Marker
+            position={{ lat: userPosition[0], lng: userPosition[1] }}
+            title={t("home.youAreHere")}
+          />
+        )}
+        {aeds.map((aed) => (
+          <Marker
+            key={aed.id}
+            position={{ lat: aed.latitude, lng: aed.longitude }}
+            icon={aedMarkerIcon}
+            title={aed.address ?? t("aed.fallbackName", { id: aed.id })}
+            onClick={() => onSelect?.(aed)}
+          />
+        ))}
+        {selected && !suppressInfoWindow && (
+          <InfoWindow
+            position={{ lat: selected.latitude, lng: selected.longitude }}
+          >
+            <div className="aed-map-info-window max-w-[200px] text-sm text-slate-900">
+              <div className="aed-map-info-window__header">
+                <p className="text-xs font-medium tabular-nums text-slate-500">
+                  ID:{selected.id}
+                </p>
+              </div>
+              <strong className="mt-1 block">
+                {selected.address ?? t("aed.fallbackName", { id: selected.id })}
+              </strong>
+              {selected.distance_meters != null && (
+                <p className="mt-1 font-medium text-teal-700">
+                  {selected.distance_meters < 1000
+                    ? t("aed.distanceMeters", {
+                        distance: Math.round(selected.distance_meters),
+                      })
+                    : t("aed.distanceKm", {
+                        distance: (selected.distance_meters / 1000).toFixed(1),
+                      })}
+                </p>
+              )}
+              <div className="mt-1">
+                <AccessibilityBadge aed={selected} />
+              </div>
             </div>
-          </div>
-        </InfoWindow>
-      )}
-    </Map>
+          </InfoWindow>
+        )}
+      </Map>
       {locationLoading && (
         <div
           className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/70"
           role="status"
           aria-live="polite"
-          aria-label={t('home.locating')}
+          aria-label={t("home.locating")}
         >
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-teal-600 border-t-transparent" />
-          <p className="text-sm font-medium text-slate-700">{t('home.locating')}</p>
+          <p className="text-sm font-medium text-slate-700">
+            {t("home.locating")}
+          </p>
         </div>
       )}
     </div>
-  )
+  );
 }
 
 export function MapView(props: MapViewProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
 
   if (!hasGoogleMapsApiKey()) {
     return (
       <div
-        className={`flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-600 ${props.className ?? 'h-full w-full'}`}
+        className={`flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-600 ${props.className ?? "h-full w-full"}`}
       >
-        <p>{t('maps.missingKey')}</p>
+        <p>{t("maps.missingKey")}</p>
       </div>
-    )
+    );
   }
 
-  return <GoogleMapView {...props} />
+  return <GoogleMapView {...props} />;
 }

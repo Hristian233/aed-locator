@@ -33,3 +33,21 @@ body {
 .skeleton {
   @apply animate-pulse rounded-lg bg-slate-200;
 }
+
+/* Pull content up into the InfoWindow header row; ID left aligns with close button right */
+.gm-style-iw:has(.aed-map-info-window) .gm-style-iw-chr {
+  height: 2.25rem !important;
+  margin-bottom: -2.25rem !important;
+}
+
+.gm-style-iw:has(.aed-map-info-window) .gm-style-iw-d {
+  margin-right: 2.5rem;
+  overflow: visible !important;
+  padding-bottom: 12px !important;
+}
+
+.aed-map-info-window__header {
+  display: flex;
+  height: 2.25rem;
+  align-items: center;
+}
