@@ -123,6 +123,7 @@
       "submissionFailed": "Submission failed",
       "imageRequired": "Please upload at least one photo of the AED.",
       "imageTooSmall": "Image file is too small",
+      "imageTooLarge": "Image must be {{maxMb}} MB or smaller.",
       "imageType": "Invalid image type. Use JPEG, PNG, or WebP."
     }
   },

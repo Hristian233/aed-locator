@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,9 +28,16 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
+    storage_backend: Literal["local", "gcs"] = "local"
     upload_dir: str = "uploads"
-    max_upload_bytes: int = 5 * 1024 * 1024
-    allowed_image_types: set[str] = {"image/jpeg", "image/png", "image/webp"}
+    gcs_temp_bucket: str = "aed-locator-dev-inbox"
+    gcs_images_bucket: str = "aed-locator-dev-aed-images"
+    gcs_signed_upload_ttl_seconds: int = 900
+    gcs_signed_read_ttl_seconds: int = 3600
+    gcs_image_prefix: str = "aed-images"
+    image_processor_url: str = ""
+    max_image_bytes: int = 10 * 1024 * 1024
+    allowed_image_types: str = "image/jpeg,image/png,image/webp"
 
     google_maps_api_key: str = ""
 
@@ -39,6 +46,18 @@ class Settings(BaseSettings):
     min_aed_confidence: float = 0.35
 
     admin_emails: list[str] = Field(default_factory=list)
+
+    @property
+    def allowed_image_mime_types(self) -> set[str]:
+        return {item.strip() for item in self.allowed_image_types.split(",") if item.strip()}
+
+    @property
+    def uses_gcs_storage(self) -> bool:
+        return self.storage_backend == "gcs"
+
+    @property
+    def max_upload_bytes(self) -> int:
+        return self.max_image_bytes
 
 
 @lru_cache

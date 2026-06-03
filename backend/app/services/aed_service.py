@@ -7,6 +7,7 @@ from app.models.user import User
 from app.repositories.aed_repository import AEDRepository
 from app.schemas.aed import AEDCreate, AEDListResponse, AEDResponse, AEDUpdate, SubmissionResult
 from app.services.ai_service import AIService
+from app.services.image_processor import ImageProcessorError, ImageProcessorService
 from app.services.opening_hours import (
     is_aed_available_now,
     is_aed_reachable,
@@ -17,14 +18,20 @@ from app.services.storage_service import StorageService
 logger = get_logger(__name__)
 
 
-def _to_response(aed: AED, distance_meters: float | None = None) -> AEDResponse:
+def _to_response(
+    aed: AED,
+    distance_meters: float | None = None,
+    *,
+    storage: StorageService | None = None,
+) -> AEDResponse:
+    storage = storage or StorageService()
     return AEDResponse(
         id=aed.id,
         latitude=aed.latitude,
         longitude=aed.longitude,
         address=aed.address,
         description=aed.description,
-        image_url=aed.image_url,
+        image_url=storage.resolve_display_url(aed.image_url),
         verification_status=aed.verification_status.value,
         accessibility_type=aed.accessibility_type.value,
         opening_hours=aed.opening_hours,
@@ -44,10 +51,12 @@ class AEDService:
         aed_repo: AEDRepository,
         storage: StorageService | None = None,
         ai: AIService | None = None,
+        image_processor: ImageProcessorService | None = None,
     ) -> None:
         self.aed_repo = aed_repo
         self.storage = storage or StorageService()
         self.ai = ai or AIService()
+        self.image_processor = image_processor or ImageProcessorService()
 
     async def list_aeds(
         self,
@@ -67,7 +76,7 @@ class AEDService:
         if verified_only and status_enum is None:
             rows = [(aed, dist) for aed, dist in rows if is_aed_available_now(aed)]
             total = len(rows)
-        items = [_to_response(aed, dist) for aed, dist in rows]
+        items = [_to_response(aed, dist, storage=self.storage) for aed, dist in rows]
         return AEDListResponse(
             items=items,
             total=total,
@@ -78,7 +87,7 @@ class AEDService:
 
     async def get_aed(self, aed_id: int) -> AEDResponse | None:
         aed = await self.aed_repo.get_by_id(aed_id)
-        return _to_response(aed) if aed else None
+        return _to_response(aed, storage=self.storage) if aed else None
 
     async def find_nearest(
         self,
@@ -98,12 +107,12 @@ class AEDService:
             verified_only=True,
         )
         if not reachable_only:
-            return [_to_response(aed, dist) for aed, dist in rows[:limit]]
+            return [_to_response(aed, dist, storage=self.storage) for aed, dist in rows[:limit]]
 
         available: list[AEDResponse] = []
         for aed, dist in rows:
             if is_aed_reachable(aed, distance_meters=dist):
-                available.append(_to_response(aed, dist))
+                available.append(_to_response(aed, dist, storage=self.storage))
             if len(available) >= limit:
                 break
         return available
@@ -115,6 +124,8 @@ class AEDService:
         submitter: User | None,
         image_content: bytes | None = None,
         image_content_type: str | None = None,
+        image_temp_object_key: str | None = None,
+        image_content_length: int | None = None,
     ) -> SubmissionResult:
         settings = get_settings()
         warnings: list[str] = []
@@ -125,7 +136,8 @@ class AEDService:
             raise ValueError("Opening hours are required for business-hours accessibility.")
 
         report_type = ReportType(data.report_type)
-        if report_type == ReportType.new_location and not image_content:
+        has_image_input = bool(image_content) or bool(image_temp_object_key)
+        if report_type == ReportType.new_location and not has_image_input:
             raise ValueError("At least one photo is required for new AED submissions.")
         if report_type != ReportType.new_location and not data.description:
             raise ValueError("Please provide details describing the issue.")
@@ -149,16 +161,54 @@ class AEDService:
             raise ValueError("Submission flagged as potential spam.")
 
         ai_confidence: float | None = None
-        image_url: str | None = None
+        image_object_key: str | None = None
+        analysis_bytes: bytes | None = None
 
-        if image_content and image_content_type:
-            analysis = self.ai.analyze_image(image_content)
+        if settings.uses_gcs_storage:
+            if image_content:
+                raise ValueError(
+                    "Send image_temp_object_key after uploading to the signed URL, not a file upload."
+                )
+            if image_temp_object_key:
+                if image_content_type and image_content_length:
+                    self.storage.validate_upload_metadata(
+                        image_content_type,
+                        image_content_length,
+                    )
+                final_object_key = self.storage.build_final_object_key()
+                try:
+                    processed = await self.image_processor.process_temp_image(
+                        temp_object_key=image_temp_object_key,
+                        content_type=image_content_type,
+                        content_length=image_content_length,
+                        final_object_key=final_object_key,
+                    )
+                except ImageProcessorError as exc:
+                    raise ValueError(exc.message) from exc
+                image_object_key = processed.final_object_key
+                try:
+                    analysis_bytes = await self.storage.load_image_bytes(image_object_key)
+                except Exception as exc:
+                    logger.warning(
+                        "processed_image_load_failed",
+                        object_key=image_object_key,
+                        error=str(exc),
+                    )
+                    warnings.append(
+                        "Image was saved but automated checks could not be run."
+                    )
+        elif image_content and image_content_type:
+            self.storage.validate_upload_metadata(image_content_type, len(image_content))
+            analysis_bytes = image_content
+            image_object_key = await self.storage.save_image(image_content, image_content_type)
+
+        if analysis_bytes:
+            analysis = self.ai.analyze_image(analysis_bytes)
             ai_confidence = analysis.confidence
             if not analysis.likely_aed:
                 warnings.append(
                     "Uploaded image may not show an AED. An admin will review this submission."
                 )
-            image_url = await self.storage.save_image(image_content, image_content_type)
 
         point = WKTElement(f"POINT({data.longitude} {data.latitude})", srid=4326)
         aed = AED(
@@ -167,7 +217,7 @@ class AEDService:
             longitude=data.longitude,
             address=data.address,
             description=data.description,
-            image_url=image_url,
+            image_url=image_object_key,
             verification_status=VerificationStatus.pending,
             accessibility_type=AccessibilityType(data.accessibility_type),
             opening_hours=opening_hours,
@@ -181,7 +231,7 @@ class AEDService:
         created = await self.aed_repo.create(aed)
         logger.info("aed_submitted", aed_id=created.id, report_type=report_type.value, warnings=warnings)
         return SubmissionResult(
-            aed=_to_response(created),
+            aed=_to_response(created, storage=self.storage),
             warnings=warnings,
             duplicate_of_id=duplicate_of_id,
         )
@@ -192,7 +242,7 @@ class AEDService:
             return None
         aed.verification_status = status
         updated = await self.aed_repo.update(aed)
-        return _to_response(updated)
+        return _to_response(updated, storage=self.storage)
 
     async def update_aed(self, aed_id: int, data: AEDUpdate) -> AEDResponse | None:
         aed = await self.aed_repo.get_by_id(aed_id)
@@ -209,4 +259,4 @@ class AEDService:
         if data.opening_hours is not None:
             aed.opening_hours = validate_opening_hours_json(data.opening_hours)
         updated = await self.aed_repo.update(aed)
-        return _to_response(updated)
+        return _to_response(updated, storage=self.storage)

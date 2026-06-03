@@ -17,6 +17,7 @@ const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 type WeekdayKey = (typeof WEEKDAYS)[number]
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))
 const MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))
@@ -172,6 +173,9 @@ export function SubmitPage() {
     if (file.size < 1024) {
       return t('report.errors.imageTooSmall')
     }
+    if (file.size > MAX_IMAGE_BYTES) {
+      return t('report.errors.imageTooLarge', { maxMb: 10 })
+    }
     return null
   }
 
@@ -238,7 +242,18 @@ export function SubmitPage() {
       if (description) form.append('description', description)
       if (contactEmail.trim()) form.append('contact_email', contactEmail.trim())
       if (relatedAedId.trim()) form.append('related_aed_id', relatedAedId.trim())
-      if (image) form.append('image', image)
+      if (image) {
+        const uploadConfig = await api.uploadConfig()
+        if (uploadConfig.storage_backend === 'gcs') {
+          const signed = await api.createSignedUploadUrl(image.type, image.size)
+          await api.uploadToSignedUrl(signed.upload_url, image, image.type)
+          form.append('image_temp_object_key', signed.object_key)
+          form.append('image_content_type', image.type)
+          form.append('image_content_length', String(image.size))
+        } else {
+          form.append('image', image)
+        }
+      }
 
       const result = await api.submitAed(form)
       setWarnings(result.warnings)

@@ -9,6 +9,8 @@ from app.core.config import get_settings
 from app.models.user import User
 from app.schemas.aed import AEDCreate, AEDListResponse, AEDResponse, NearestAEDQuery, SubmissionResult
 from app.services.aed_service import AEDService
+from app.services.image_validation import ImageValidationError
+from app.services.storage_service import StorageService
 
 router = APIRouter(prefix="/aeds", tags=["aeds"])
 limiter = Limiter(key_func=get_remote_address)
@@ -65,23 +67,34 @@ async def submit_aed(
     contact_email: str | None = Form(None),
     related_aed_id: int | None = Form(None),
     image: UploadFile | None = File(None),
+    image_temp_object_key: str | None = Form(None),
+    image_content_type: str | None = Form(None),
+    image_content_length: int | None = Form(None),
 ) -> SubmissionResult:
     settings = get_settings()
+    storage = StorageService(settings)
     image_content: bytes | None = None
-    content_type: str | None = None
+    content_type: str | None = image_content_type
+
+    if settings.uses_gcs_storage and image and image.filename:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Upload the image using a signed URL, then submit image_temp_object_key.",
+        )
 
     if image and image.filename:
         content_type = image.content_type or ""
-        if content_type not in settings.allowed_image_types:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported image type. Allowed: {settings.allowed_image_types}",
-            )
         image_content = await image.read()
-        if len(image_content) > settings.max_upload_bytes:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Image too large")
-        if len(image_content) < 1024:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Image file is too small")
+        try:
+            storage.validate_upload_metadata(content_type, len(image_content))
+        except ImageValidationError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    if image_temp_object_key and image_content_type and image_content_length:
+        try:
+            storage.validate_upload_metadata(image_content_type, image_content_length)
+        except ImageValidationError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     data = AEDCreate(
         latitude=latitude,
@@ -100,6 +113,8 @@ async def submit_aed(
             submitter=user,
             image_content=image_content,
             image_content_type=content_type,
+            image_temp_object_key=image_temp_object_key,
+            image_content_length=image_content_length,
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

@@ -123,6 +123,7 @@
       "submissionFailed": "Изпращането неуспешно",
       "imageRequired": "Качете поне една снимка на АВД.",
       "imageTooSmall": "Снимката е твърде малка",
+      "imageTooLarge": "Снимката трябва да е най-много {{maxMb}} MB.",
       "imageType": "Невалиден тип изображение. Използвайте JPEG, PNG или WebP."
     }
   },

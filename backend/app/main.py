@@ -49,9 +49,10 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
-    upload_path = Path(settings.upload_dir)
-    upload_path.mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
+    if not settings.uses_gcs_storage:
+        upload_path = Path(settings.upload_dir)
+        upload_path.mkdir(parents=True, exist_ok=True)
+        app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
 
     @app.get("/health", response_model=MessageResponse, tags=["health"])
     async def health() -> MessageResponse:

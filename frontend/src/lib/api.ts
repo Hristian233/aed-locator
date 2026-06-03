@@ -2,6 +2,18 @@ import type { AED, AEDListResponse, AuthResponse, SubmissionResult } from '../ty
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
+export type UploadConfig = {
+  storage_backend: 'local' | 'gcs'
+  max_image_bytes: number
+  allowed_image_types: string[]
+}
+
+export type SignedUploadResponse = {
+  upload_url: string
+  object_key: string
+  expires_in_seconds: number
+}
+
 export class ApiError extends Error {
   readonly status: number
   readonly isNetworkError: boolean
@@ -97,6 +109,34 @@ export const api = {
       params.set('reachable_only', 'false')
     }
     return request<AED[]>(`/api/v1/aeds/nearest?${params}`)
+  },
+
+  uploadConfig: () => request<UploadConfig>('/api/v1/uploads/config'),
+
+  createSignedUploadUrl: (contentType: string, contentLength: number) =>
+    request<SignedUploadResponse>('/api/v1/uploads/signed-url', {
+      method: 'POST',
+      body: JSON.stringify({ content_type: contentType, content_length: contentLength }),
+    }),
+
+  uploadToSignedUrl: async (
+    uploadUrl: string,
+    file: File,
+    contentType: string,
+  ): Promise<void> => {
+    let response: Response
+    try {
+      response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: file,
+      })
+    } catch {
+      throw new ApiError('Image upload failed. Check your connection and try again.', 0, true)
+    }
+    if (!response.ok) {
+      throw new ApiError('Image upload failed. Please try again.', response.status)
+    }
   },
 
   submitAed: (form: FormData) =>
