@@ -5,6 +5,8 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 export type UploadConfig = {
   storage_backend: 'local' | 'gcs'
   max_image_bytes: number
+  max_images_per_submission: number
+  min_images_new_location: number
   allowed_image_types: string[]
 }
 
@@ -118,6 +120,17 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ content_type: contentType, content_length: contentLength }),
     }),
+
+  createSignedUploadUrls: (
+    uploads: { content_type: string; content_length: number }[],
+  ) =>
+    request<{ items: SignedUploadResponse[]; max_images_per_submission: number }>(
+      '/api/v1/uploads/signed-urls',
+      {
+        method: 'POST',
+        body: JSON.stringify({ uploads }),
+      },
+    ),
 
   uploadToSignedUrl: async (
     uploadUrl: string,

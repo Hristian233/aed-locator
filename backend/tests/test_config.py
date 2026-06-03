@@ -26,3 +26,9 @@ def test_development_defaults_use_local_storage_and_dev_buckets() -> None:
     assert settings.gcs_temp_bucket == "aed-locator-dev-inbox"
     assert settings.gcs_images_bucket == "aed-locator-dev-aed-images"
     assert settings.max_image_bytes == 10 * 1024 * 1024
+
+
+def test_max_images_per_submission_default() -> None:
+    settings = Settings()
+    assert settings.max_images_per_submission == 5
+    assert settings.min_images_new_location == 1

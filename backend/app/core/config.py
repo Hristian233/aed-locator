@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     gcs_image_prefix: str = "aed-images"
     image_processor_url: str = ""
     max_image_bytes: int = 10 * 1024 * 1024
+    max_images_per_submission: int = 5
+    min_images_new_location: int = 1
     allowed_image_types: str = "image/jpeg,image/png,image/webp"
 
     google_maps_api_key: str = ""

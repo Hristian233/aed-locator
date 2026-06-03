@@ -17,6 +17,7 @@ const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 type WeekdayKey = (typeof WEEKDAYS)[number]
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_IMAGES = 5
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))
@@ -143,7 +144,7 @@ export function SubmitPage() {
   const [accessibilityType, setAccessibilityType] = useState<AccessibilityType | ''>('')
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHours>(emptyWeeklyHours)
   const [contactEmail, setContactEmail] = useState('')
-  const [image, setImage] = useState<File | null>(null)
+  const [images, setImages] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
@@ -165,8 +166,7 @@ export function SubmitPage() {
     )
   }
 
-  const validateImage = (file: File | null): string | null => {
-    if (!file) return null
+  const validateImage = (file: File): string | null => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       return t('report.errors.imageType')
     }
@@ -196,14 +196,20 @@ export function SubmitPage() {
       setError(t('report.errors.locationRequired'))
       return
     }
-    if (reportType === 'new_location' && !image) {
+    if (reportType === 'new_location' && images.length === 0) {
       setError(t('report.errors.imageRequired'))
       return
     }
-    const imageError = validateImage(image)
-    if (imageError) {
-      setError(imageError)
+    if (images.length > MAX_IMAGES) {
+      setError(t('report.errors.imageTooMany', { max: MAX_IMAGES }))
       return
+    }
+    for (const file of images) {
+      const imageError = validateImage(file)
+      if (imageError) {
+        setError(imageError)
+        return
+      }
     }
 
     let openingHours: string | null = null
@@ -242,16 +248,28 @@ export function SubmitPage() {
       if (description) form.append('description', description)
       if (contactEmail.trim()) form.append('contact_email', contactEmail.trim())
       if (relatedAedId.trim()) form.append('related_aed_id', relatedAedId.trim())
-      if (image) {
+      if (images.length > 0) {
         const uploadConfig = await api.uploadConfig()
+        const maxImages = uploadConfig.max_images_per_submission ?? MAX_IMAGES
+        if (images.length > maxImages) {
+          throw new Error(t('report.errors.imageTooMany', { max: maxImages }))
+        }
         if (uploadConfig.storage_backend === 'gcs') {
-          const signed = await api.createSignedUploadUrl(image.type, image.size)
-          await api.uploadToSignedUrl(signed.upload_url, image, image.type)
-          form.append('image_temp_object_key', signed.object_key)
-          form.append('image_content_type', image.type)
-          form.append('image_content_length', String(image.size))
+          const signedBatch = await api.createSignedUploadUrls(
+            images.map((file) => ({ content_type: file.type, content_length: file.size })),
+          )
+          for (let i = 0; i < images.length; i += 1) {
+            const file = images[i]
+            const signed = signedBatch.items[i]
+            await api.uploadToSignedUrl(signed.upload_url, file, file.type)
+            form.append('image_temp_object_key', signed.object_key)
+            form.append('image_content_type', file.type)
+            form.append('image_content_length', String(file.size))
+          }
         } else {
-          form.append('image', image)
+          for (const file of images) {
+            form.append('images', file)
+          }
         }
       }
 
@@ -436,14 +454,21 @@ export function SubmitPage() {
             type="file"
             accept="image/jpeg,image/png,image/webp"
             capture="environment"
+            multiple
             required={reportType === 'new_location'}
             onChange={(e) => {
-              const file = e.target.files?.[0] ?? null
-              setImage(file)
-              setError(validateImage(file))
+              const selected = Array.from(e.target.files ?? []).slice(0, MAX_IMAGES)
+              setImages(selected)
+              const firstError = selected.map((file) => validateImage(file)).find(Boolean)
+              setError(firstError ?? null)
             }}
             className="mt-1 w-full text-sm"
           />
+          {images.length > 0 && (
+            <p className="mt-1 text-xs text-slate-500">
+              {t('report.photosSelected', { count: images.length, max: MAX_IMAGES })}
+            </p>
+          )}
         </label>
 
         <label className="block">

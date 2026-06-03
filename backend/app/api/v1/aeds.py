@@ -8,12 +8,34 @@ from app.api.deps import get_aed_service, get_current_user_optional
 from app.core.config import get_settings
 from app.models.user import User
 from app.schemas.aed import AEDCreate, AEDListResponse, AEDResponse, NearestAEDQuery, SubmissionResult
-from app.services.aed_service import AEDService
+from app.schemas.aed import TempImageUploadMeta
+from app.services.aed_service import AEDService, LocalImageUpload
 from app.services.image_validation import ImageValidationError
 from app.services.storage_service import StorageService
 
 router = APIRouter(prefix="/aeds", tags=["aeds"])
 limiter = Limiter(key_func=get_remote_address)
+
+
+def _zip_temp_image_metadata(
+    temp_keys: list[str],
+    content_types: list[str],
+    content_lengths: list[int],
+) -> list[TempImageUploadMeta]:
+    uploads: list[TempImageUploadMeta] = []
+    for index, temp_key in enumerate(temp_keys):
+        if not temp_key.strip():
+            continue
+        content_type = content_types[index] if index < len(content_types) else None
+        content_length = content_lengths[index] if index < len(content_lengths) else None
+        uploads.append(
+            TempImageUploadMeta(
+                temp_object_key=temp_key.strip(),
+                content_type=content_type or None,
+                content_length=content_length,
+            )
+        )
+    return uploads
 
 
 @router.get("", response_model=AEDListResponse)
@@ -67,34 +89,53 @@ async def submit_aed(
     contact_email: str | None = Form(None),
     related_aed_id: int | None = Form(None),
     image: UploadFile | None = File(None),
-    image_temp_object_key: str | None = Form(None),
-    image_content_type: str | None = Form(None),
-    image_content_length: int | None = Form(None),
+    images: list[UploadFile] = File(default=[]),
+    image_temp_object_key: list[str] = Form(default=[]),
+    image_content_type: list[str] = Form(default=[]),
+    image_content_length: list[int] = Form(default=[]),
 ) -> SubmissionResult:
     settings = get_settings()
     storage = StorageService(settings)
-    image_content: bytes | None = None
-    content_type: str | None = image_content_type
+    local_images: list[LocalImageUpload] = []
 
-    if settings.uses_gcs_storage and image and image.filename:
+    if settings.uses_gcs_storage and (
+        (image and image.filename) or any(item.filename for item in images)
+    ):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail="Upload the image using a signed URL, then submit image_temp_object_key.",
+            detail="Upload photos using signed URLs, then submit image_temp_object_key for each image.",
         )
 
+    upload_files: list[UploadFile] = []
     if image and image.filename:
-        content_type = image.content_type or ""
-        image_content = await image.read()
-        try:
-            storage.validate_upload_metadata(content_type, len(image_content))
-        except ImageValidationError as exc:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        upload_files.append(image)
+    upload_files.extend([item for item in images if item.filename])
 
-    if image_temp_object_key and image_content_type and image_content_length:
+    if len(upload_files) > settings.max_images_per_submission:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"At most {settings.max_images_per_submission} photos are allowed per submission.",
+        )
+
+    for upload_file in upload_files:
+        content_type = upload_file.content_type or ""
+        content = await upload_file.read()
         try:
-            storage.validate_upload_metadata(image_content_type, image_content_length)
+            storage.validate_upload_metadata(content_type, len(content))
         except ImageValidationError as exc:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        local_images.append(LocalImageUpload(content=content, content_type=content_type))
+
+    temp_images = _zip_temp_image_metadata(
+        image_temp_object_key,
+        image_content_type,
+        image_content_length,
+    )
+    if len(temp_images) > settings.max_images_per_submission:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"At most {settings.max_images_per_submission} photos are allowed per submission.",
+        )
 
     data = AEDCreate(
         latitude=latitude,
@@ -111,10 +152,8 @@ async def submit_aed(
         return await aed_service.submit_aed(
             data,
             submitter=user,
-            image_content=image_content,
-            image_content_type=content_type,
-            image_temp_object_key=image_temp_object_key,
-            image_content_length=image_content_length,
+            local_images=local_images,
+            temp_images=temp_images,
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
