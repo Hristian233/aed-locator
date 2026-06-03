@@ -124,6 +124,8 @@
       "imageRequired": "Качете поне една снимка на АВД.",
       "imageTooSmall": "Снимката е твърде малка",
       "imageTooLarge": "Снимката трябва да е най-много {{maxMb}} MB.",
+      "imageTooMany": "Можете да качите най-много {{max}} снимки.",
+      "photosSelected": "{{count}} от {{max}} избрани снимки",
       "imageType": "Невалиден тип изображение. Използвайте JPEG, PNG или WebP."
     }
   },
