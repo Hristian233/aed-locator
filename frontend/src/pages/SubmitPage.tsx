@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, type UploadConfig } from '../lib/api'
 import type { AccessibilityType, ReportType } from '../types'
 
 const REPORT_TYPES: ReportType[] = [
@@ -16,9 +16,19 @@ const ACCESSIBILITY_TYPES: AccessibilityType[] = ['24_7', 'business_hours', 'res
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 type WeekdayKey = (typeof WEEKDAYS)[number]
 
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_IMAGES = 5
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+const DEFAULT_ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const DEFAULT_MAX_IMAGES = 5
+const DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024
+const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
+  storage_backend: 'local',
+  environment: 'development',
+  max_image_bytes: DEFAULT_MAX_IMAGE_BYTES,
+  max_images_per_submission: DEFAULT_MAX_IMAGES,
+  min_images_new_location: 1,
+  allowed_image_types: DEFAULT_ALLOWED_IMAGE_TYPES,
+  gcs_temp_bucket: null,
+  gcs_images_bucket: null,
+}
 
 const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))
 const MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))
@@ -145,10 +155,26 @@ export function SubmitPage() {
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHours>(emptyWeeklyHours)
   const [contactEmail, setContactEmail] = useState('')
   const [images, setImages] = useState<File[]>([])
+  const [uploadConfig, setUploadConfig] = useState<UploadConfig>(DEFAULT_UPLOAD_CONFIG)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .uploadConfig()
+      .then((config) => {
+        if (!cancelled) setUploadConfig(config)
+      })
+      .catch(() => {
+        if (!cancelled) setUploadConfig(DEFAULT_UPLOAD_CONFIG)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const captureLocation = () => {
     if (!('geolocation' in navigator)) {
@@ -167,14 +193,15 @@ export function SubmitPage() {
   }
 
   const validateImage = (file: File): string | null => {
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    if (!uploadConfig.allowed_image_types.includes(file.type)) {
       return t('report.errors.imageType')
     }
     if (file.size < 1024) {
       return t('report.errors.imageTooSmall')
     }
-    if (file.size > MAX_IMAGE_BYTES) {
-      return t('report.errors.imageTooLarge', { maxMb: 10 })
+    const maxMb = Math.max(1, Math.round(uploadConfig.max_image_bytes / (1024 * 1024)))
+    if (file.size > uploadConfig.max_image_bytes) {
+      return t('report.errors.imageTooLarge', { maxMb })
     }
     return null
   }
@@ -200,8 +227,10 @@ export function SubmitPage() {
       setError(t('report.errors.imageRequired'))
       return
     }
-    if (images.length > MAX_IMAGES) {
-      setError(t('report.errors.imageTooMany', { max: MAX_IMAGES }))
+    if (images.length > uploadConfig.max_images_per_submission) {
+      setError(
+        t('report.errors.imageTooMany', { max: uploadConfig.max_images_per_submission }),
+      )
       return
     }
     for (const file of images) {
@@ -249,8 +278,7 @@ export function SubmitPage() {
       if (contactEmail.trim()) form.append('contact_email', contactEmail.trim())
       if (relatedAedId.trim()) form.append('related_aed_id', relatedAedId.trim())
       if (images.length > 0) {
-        const uploadConfig = await api.uploadConfig()
-        const maxImages = uploadConfig.max_images_per_submission ?? MAX_IMAGES
+        const maxImages = uploadConfig.max_images_per_submission
         if (images.length > maxImages) {
           throw new Error(t('report.errors.imageTooMany', { max: maxImages }))
         }
@@ -452,12 +480,15 @@ export function SubmitPage() {
           </span>
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={uploadConfig.allowed_image_types.join(',')}
             capture="environment"
             multiple
             required={reportType === 'new_location'}
             onChange={(e) => {
-              const selected = Array.from(e.target.files ?? []).slice(0, MAX_IMAGES)
+              const selected = Array.from(e.target.files ?? []).slice(
+                0,
+                uploadConfig.max_images_per_submission,
+              )
               setImages(selected)
               const firstError = selected.map((file) => validateImage(file)).find(Boolean)
               setError(firstError ?? null)
@@ -466,7 +497,10 @@ export function SubmitPage() {
           />
           {images.length > 0 && (
             <p className="mt-1 text-xs text-slate-500">
-              {t('report.photosSelected', { count: images.length, max: MAX_IMAGES })}
+              {t('report.photosSelected', {
+                count: images.length,
+                max: uploadConfig.max_images_per_submission,
+              })}
             </p>
           )}
         </label>

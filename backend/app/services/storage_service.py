@@ -47,6 +47,11 @@ class StorageService:
             return None
         if not self.settings.uses_gcs_storage or stored_value.startswith("/"):
             return stored_value
+
+        public_base = self.settings.gcs_images_public_url_base.strip()
+        if public_base:
+            return f"{public_base.rstrip('/')}/{stored_value.lstrip('/')}"
+
         return self.gcs.create_signed_read_url(stored_value)
 
     def build_final_object_key(self) -> str:

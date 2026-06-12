@@ -1,7 +1,7 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,12 +30,13 @@ class Settings(BaseSettings):
 
     storage_backend: Literal["local", "gcs"] = "local"
     upload_dir: str = "uploads"
-    gcs_temp_bucket: str = "aed-locator-dev-inbox"
-    gcs_images_bucket: str = "aed-locator-dev-aed-images"
+    gcs_temp_bucket: str = ""
+    gcs_images_bucket: str = ""
+    gcs_images_public_url_base: str = "https://PLACEHOLDER.example/aed-images"
     gcs_signed_upload_ttl_seconds: int = 900
     gcs_signed_read_ttl_seconds: int = 3600
     gcs_image_prefix: str = "aed-images"
-    image_processor_url: str = ""
+    image_processor_url: str = "https://aed-image-processor-dev-iuhz7yxnaa-uc.a.run.app"
     max_image_bytes: int = 10 * 1024 * 1024
     max_images_per_submission: int = 5
     min_images_new_location: int = 1
@@ -48,6 +49,23 @@ class Settings(BaseSettings):
     min_aed_confidence: float = 0.35
 
     admin_emails: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def resolve_gcs_buckets(self) -> Self:
+        if not self.gcs_temp_bucket.strip():
+            self.gcs_temp_bucket = self._default_gcs_temp_bucket()
+        if not self.gcs_images_bucket.strip():
+            self.gcs_images_bucket = self._default_gcs_images_bucket()
+        return self
+
+    def _gcs_env_suffix(self) -> str:
+        return "prod" if self.environment == "production" else "dev"
+
+    def _default_gcs_temp_bucket(self) -> str:
+        return f"aed-locator-{self._gcs_env_suffix()}-inbox"
+
+    def _default_gcs_images_bucket(self) -> str:
+        return f"aed-locator-{self._gcs_env_suffix()}-aed-images"
 
     @property
     def allowed_image_mime_types(self) -> set[str]:

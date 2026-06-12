@@ -25,10 +25,13 @@ async def upload_config() -> dict[str, object]:
     settings = get_settings()
     return {
         "storage_backend": settings.storage_backend,
+        "environment": settings.environment,
         "max_image_bytes": settings.max_image_bytes,
         "max_images_per_submission": settings.max_images_per_submission,
         "min_images_new_location": settings.min_images_new_location,
         "allowed_image_types": sorted(settings.allowed_image_mime_types),
+        "gcs_temp_bucket": settings.gcs_temp_bucket if settings.uses_gcs_storage else None,
+        "gcs_images_bucket": settings.gcs_images_bucket if settings.uses_gcs_storage else None,
     }
 
 

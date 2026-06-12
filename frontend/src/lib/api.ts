@@ -4,10 +4,13 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 export type UploadConfig = {
   storage_backend: 'local' | 'gcs'
+  environment: 'development' | 'staging' | 'production'
   max_image_bytes: number
   max_images_per_submission: number
   min_images_new_location: number
   allowed_image_types: string[]
+  gcs_temp_bucket: string | null
+  gcs_images_bucket: string | null
 }
 
 export type SignedUploadResponse = {

@@ -23,6 +23,8 @@ spec:
           env:
             - name: ENVIRONMENT
               value: production
+            # GCS buckets auto-resolve from ENVIRONMENT (prod -> aed-locator-prod-*).
+            # Override with GCS_TEMP_BUCKET / GCS_IMAGES_BUCKET if needed.
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -35,10 +37,8 @@ spec:
                   key: secret_key
             - name: STORAGE_BACKEND
               value: gcs
-            - name: GCS_TEMP_BUCKET
-              value: aed-locator-prod-inbox
-            - name: GCS_IMAGES_BUCKET
-              value: aed-locator-prod-aed-images
+            - name: GCS_IMAGES_PUBLIC_URL_BASE
+              value: "https://PLACEHOLDER.example/aed-images"
             - name: GCS_SIGNED_UPLOAD_TTL_SECONDS
               value: "900"
             - name: GCS_SIGNED_READ_TTL_SECONDS

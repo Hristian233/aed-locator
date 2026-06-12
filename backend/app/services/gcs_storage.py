@@ -1,6 +1,9 @@
 import uuid
 from datetime import timedelta
+from typing import Any
 
+import google.auth
+import google.auth.transport.requests
 from google.cloud import storage
 from google.cloud.exceptions import GoogleCloudError
 
@@ -33,6 +36,37 @@ class GCSStorageService:
         prefix = self.settings.gcs_image_prefix.strip("/")
         return f"{prefix}/{uuid.uuid4().hex}.webp"
 
+    def _cloud_run_signing_kwargs(self) -> dict[str, Any]:
+        """Use IAM signBlob when the runtime credentials have no private key (Cloud Run)."""
+        credentials, _ = google.auth.default()
+        if getattr(credentials, "signer", None) is not None:
+            return {}
+
+        credentials.refresh(google.auth.transport.requests.Request())
+        service_account_email = getattr(credentials, "service_account_email", None)
+        if not service_account_email:
+            raise GCSStorageError(
+                "Could not determine service account for signed URL generation."
+            )
+
+        return {
+            "access_token": credentials.token,
+            "service_account_email": service_account_email,
+        }
+
+    def _generate_signed_url(self, blob: storage.Blob, **kwargs: Any) -> str:
+        try:
+            return blob.generate_signed_url(
+                version="v4",
+                **kwargs,
+                **self._cloud_run_signing_kwargs(),
+            )
+        except (GoogleCloudError, AttributeError, ValueError) as exc:
+            logger.warning("gcs_signed_url_failed", error=str(exc))
+            raise GCSStorageError(
+                "Could not prepare image upload. Please try again."
+            ) from exc
+
     def create_signed_upload_url(
         self,
         *,
@@ -48,15 +82,17 @@ class GCSStorageService:
         try:
             bucket = self.client.bucket(self.settings.gcs_temp_bucket)
             blob = bucket.blob(object_key)
-            upload_url = blob.generate_signed_url(
-                version="v4",
+            upload_url = self._generate_signed_url(
+                blob,
                 expiration=timedelta(seconds=self.settings.gcs_signed_upload_ttl_seconds),
                 method="PUT",
                 content_type=content_type,
             )
-        except (GoogleCloudError, ImageValidationError) as exc:
+        except (GCSStorageError, ImageValidationError) as exc:
             if isinstance(exc, ImageValidationError):
                 raise
+            raise
+        except GoogleCloudError as exc:
             logger.warning("gcs_signed_upload_failed", error=str(exc))
             raise GCSStorageError(
                 "Could not prepare image upload. Please try again."
@@ -74,11 +110,13 @@ class GCSStorageService:
         try:
             bucket = self.client.bucket(self.settings.gcs_images_bucket)
             blob = bucket.blob(object_key)
-            return blob.generate_signed_url(
-                version="v4",
+            return self._generate_signed_url(
+                blob,
                 expiration=timedelta(seconds=self.settings.gcs_signed_read_ttl_seconds),
                 method="GET",
             )
+        except GCSStorageError:
+            return None
         except GoogleCloudError as exc:
             logger.warning(
                 "gcs_signed_read_failed",
