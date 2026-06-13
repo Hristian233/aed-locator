@@ -22,12 +22,22 @@ export type SignedUploadResponse = {
 export class ApiError extends Error {
   readonly status: number
   readonly isNetworkError: boolean
+  readonly code?: string
+  readonly maxImages?: number
 
-  constructor(message: string, status: number, isNetworkError = false) {
+  constructor(
+    message: string,
+    status: number,
+    isNetworkError = false,
+    code?: string,
+    maxImages?: number,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.isNetworkError = isNetworkError
+    this.code = code
+    this.maxImages = maxImages
   }
 }
 
@@ -41,6 +51,51 @@ export function isServerConnectionError(err: unknown): boolean {
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem('aed_token')
   return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+type ApiErrorDetail = {
+  code?: string
+  message?: string
+  max_images?: number
+}
+
+function parseErrorDetail(detail: unknown): {
+  message: string
+  code?: string
+  maxImages?: number
+} {
+  if (typeof detail === 'string') {
+    return { message: detail }
+  }
+
+  if (Array.isArray(detail)) {
+    const message = detail
+      .map((item) => {
+        if (item && typeof item === 'object' && 'msg' in item) {
+          return String((item as { msg: unknown }).msg)
+        }
+        return String(item)
+      })
+      .join(' ')
+    return { message }
+  }
+
+  if (detail && typeof detail === 'object') {
+    const parsed = detail as ApiErrorDetail
+    const message =
+      typeof parsed.message === 'string'
+        ? parsed.message
+        : typeof parsed.code === 'string'
+          ? parsed.code
+          : JSON.stringify(detail)
+    return {
+      message,
+      code: typeof parsed.code === 'string' ? parsed.code : undefined,
+      maxImages: typeof parsed.max_images === 'number' ? parsed.max_images : undefined,
+    }
+  }
+
+  return { message: String(detail) }
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -61,13 +116,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     const detail = body.detail ?? body.message ?? `Request failed (${response.status})`
+    const parsed = parseErrorDetail(detail)
     const message =
       response.status === 502
         ? 'Bad gateway — the API server is not responding.'
-        : typeof detail === 'string'
-          ? detail
-          : String(detail)
-    throw new ApiError(message, response.status, response.status >= 500)
+        : parsed.message
+    throw new ApiError(
+      message,
+      response.status,
+      response.status >= 500,
+      parsed.code,
+      parsed.maxImages,
+    )
   }
 
   return response.json() as Promise<T>
@@ -125,7 +185,7 @@ export const api = {
     }),
 
   createSignedUploadUrls: (
-    uploads: { content_type: string; content_length: number }[],
+    uploads: { content_type: string; content_length: number; total_images?: number }[],
   ) =>
     request<{ items: SignedUploadResponse[]; max_images_per_submission: number }>(
       '/api/v1/uploads/signed-urls',
