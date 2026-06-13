@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     gcs_temp_bucket: str = ""
     gcs_images_bucket: str = ""
-    gcs_images_public_url_base: str = "https://PLACEHOLDER.example/aed-images"
+    gcs_images_public_url_base: str = "https://storage.googleapis.com/aed-locator-dev-images"
     gcs_signed_upload_ttl_seconds: int = 900
     gcs_signed_read_ttl_seconds: int = 3600
     image_processor_url: str = "https://aed-image-processor-dev-iuhz7yxnaa-uc.a.run.app"
