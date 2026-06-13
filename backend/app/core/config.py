@@ -35,7 +35,6 @@ class Settings(BaseSettings):
     gcs_images_public_url_base: str = "https://PLACEHOLDER.example/aed-images"
     gcs_signed_upload_ttl_seconds: int = 900
     gcs_signed_read_ttl_seconds: int = 3600
-    gcs_image_prefix: str = "aed-images"
     image_processor_url: str = "https://aed-image-processor-dev-iuhz7yxnaa-uc.a.run.app"
     max_image_bytes: int = 10 * 1024 * 1024
     max_images_per_submission: int = 5

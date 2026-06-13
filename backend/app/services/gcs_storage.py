@@ -30,11 +30,10 @@ class GCSStorageService:
         return self._client
 
     def build_temp_object_key(self) -> str:
-        return f"inbox/{uuid.uuid4().hex}"
+        return f"{uuid.uuid4().hex}"
 
     def build_final_object_key(self) -> str:
-        prefix = self.settings.gcs_image_prefix.strip("/")
-        return f"{prefix}/{uuid.uuid4().hex}.webp"
+        return f"{uuid.uuid4().hex}.webp"
 
     def _cloud_run_signing_kwargs(self) -> dict[str, Any]:
         """Use IAM signBlob when the runtime credentials have no private key (Cloud Run)."""

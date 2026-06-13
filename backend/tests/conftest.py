@@ -15,7 +15,6 @@ def gcs_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("STORAGE_BACKEND", "gcs")
     monkeypatch.setenv("GCS_TEMP_BUCKET", "aed-locator-dev-inbox")
     monkeypatch.setenv("GCS_IMAGES_BUCKET", "aed-locator-dev-images")
-    monkeypatch.setenv("GCS_IMAGE_PREFIX", "aed-images")
     monkeypatch.setenv("IMAGE_PROCESSOR_URL", "https://processor.example/process")
     monkeypatch.setenv("MAX_IMAGE_BYTES", "10485760")
     monkeypatch.setenv("ALLOWED_IMAGE_TYPES", "image/jpeg,image/png,image/webp")
