@@ -6,6 +6,7 @@ from slowapi.util import get_remote_address
 
 from app.api.deps import get_aed_service, get_current_user_optional
 from app.core.config import get_settings
+from app.core.upload_limits import ImageTooManyError, image_too_many_detail
 from app.models.user import User
 from app.schemas.aed import AEDCreate, AEDListResponse, AEDResponse, NearestAEDQuery, SubmissionResult
 from app.schemas.aed import TempImageUploadMeta
@@ -98,23 +99,33 @@ async def submit_aed(
     storage = StorageService(settings)
     local_images: list[LocalImageUpload] = []
 
-    if settings.uses_gcs_storage and (
-        (image and image.filename) or any(item.filename for item in images)
-    ):
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="Upload photos using signed URLs, then submit image_temp_object_key for each image.",
-        )
-
     upload_files: list[UploadFile] = []
     if image and image.filename:
         upload_files.append(image)
     upload_files.extend([item for item in images if item.filename])
 
-    if len(upload_files) > settings.max_images_per_submission:
+    temp_images = _zip_temp_image_metadata(
+        image_temp_object_key,
+        image_content_type,
+        image_content_length,
+    )
+
+    max_images = settings.max_images_per_submission
+    if len(upload_files) > max_images or len(temp_images) > max_images:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            detail=f"At most {settings.max_images_per_submission} photos are allowed per submission.",
+            detail=image_too_many_detail(max_images),
+        )
+    if len(upload_files) + len(temp_images) > max_images:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=image_too_many_detail(max_images),
+        )
+
+    if settings.uses_gcs_storage and upload_files:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Upload photos using signed URLs, then submit image_temp_object_key for each image.",
         )
 
     for upload_file in upload_files:
@@ -125,17 +136,6 @@ async def submit_aed(
         except ImageValidationError as exc:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         local_images.append(LocalImageUpload(content=content, content_type=content_type))
-
-    temp_images = _zip_temp_image_metadata(
-        image_temp_object_key,
-        image_content_type,
-        image_content_length,
-    )
-    if len(temp_images) > settings.max_images_per_submission:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=f"At most {settings.max_images_per_submission} photos are allowed per submission.",
-        )
 
     data = AEDCreate(
         latitude=latitude,
@@ -155,5 +155,10 @@ async def submit_aed(
             local_images=local_images,
             temp_images=temp_images,
         )
+    except ImageTooManyError as exc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=image_too_many_detail(exc.max_images),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

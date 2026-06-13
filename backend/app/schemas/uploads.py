@@ -4,6 +4,11 @@ from pydantic import BaseModel, Field
 class SignedUploadRequest(BaseModel):
     content_type: str = Field(min_length=3, max_length=128)
     content_length: int = Field(ge=1024)
+    total_images: int = Field(
+        default=1,
+        ge=1,
+        description="Total photos in this submission (used to enforce max_images_per_submission).",
+    )
 
 
 class SignedUploadResponse(BaseModel):

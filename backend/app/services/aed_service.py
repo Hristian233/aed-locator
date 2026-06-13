@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from geoalchemy2.elements import WKTElement
 
 from app.core.config import Settings, get_settings
+from app.core.upload_limits import ImageTooManyError
 from app.core.logging import get_logger
 from app.models.aed import AED, AccessibilityType, ReportType, VerificationStatus
 from app.models.user import User
@@ -40,9 +41,7 @@ class LocalImageUpload:
 
 def _validate_image_count(image_count: int, report_type: ReportType, settings: Settings) -> None:
     if image_count > settings.max_images_per_submission:
-        raise ValueError(
-            f"At most {settings.max_images_per_submission} photos are allowed per submission."
-        )
+        raise ImageTooManyError(settings.max_images_per_submission)
     if report_type == ReportType.new_location and image_count < settings.min_images_new_location:
         raise ValueError("At least one photo is required for new AED submissions.")
 
