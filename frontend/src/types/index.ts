@@ -1,5 +1,5 @@
 export type AccessibilityType = '24_7' | 'business_hours' | 'restricted_access'
-export type ReportType = 'new_location' | 'incorrect_info' | 'unavailable' | 'duplicate'
+export type ReportType = 'new_location' | 'aed_issue'
 
 export interface User {
   id: number
@@ -14,6 +14,8 @@ export interface AED {
   latitude: number
   longitude: number
   address: string | null
+  location_name: string | null
+  is_restricted_access?: boolean
   description: string | null
   image_url: string | null
   image_urls?: string[]

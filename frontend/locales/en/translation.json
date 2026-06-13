@@ -67,21 +67,30 @@
     "typeLabel": "Report type",
     "types": {
       "new_location": "New AED location",
-      "incorrect_info": "Incorrect information",
-      "unavailable": "AED unavailable/damaged",
-      "duplicate": "Duplicate AED"
+      "aed_issue": "AED issue"
     },
     "useLocation": "Use my current location*",
     "locating": "Getting your location…",
     "locationOnSiteHint": "*You must be at the defibrillator's location. Remote submission is not supported.",
     "locationCaptured": "Location: {{lat}}, {{lon}}",
+    "locationName": "Location name (optional)",
+    "locationNamePlaceholder": "e.g. Metro Station Mladost 1, Mall of Sofia, Kaufland Sofia",
     "address": "Address (optional)",
     "addressPlaceholder": "e.g. Ivan Vasov str. # 10",
+    "accessTypeLabel": "Access",
+    "accessTypes": {
+      "free": "Free access",
+      "restricted": "Restricted access"
+    },
     "description": "Description",
+    "mandatory": "mandatory",
+    "optional": "optional",
     "descriptionPlaceholder": "Floor, building name, access notes...",
+    "descriptionRestrictedPlaceholder": "Describe how to get access (e.g. ask reception, security desk, get to 2-nd floor, key card)...",
+    "descriptionIssuePlaceholder": "Describe the issue (incorrect information, unavailable or damaged AED, duplicate AED, or any other problem).",
     "relatedAed": "Existing AED ID (optional)",
     "relatedAedPlaceholder": "e.g. 12",
-    "accessibility": "Accessibility",
+    "accessibility": "Accessibility (required)",
     "accessibilityPlaceholder": "Select accessibility…",
     "accessibilityTypes": {
       "24_7": "24/7 — always accessible",
@@ -125,6 +134,7 @@
       "accessibilityRequired": "Please select an accessibility option.",
       "openingHoursRequired": "Please enter opening hours for at least one day.",
       "openingHoursIncomplete": "Each day needs both open and close times selected, or leave both as —.",
+      "descriptionRequired": "Please provide a description.",
       "submissionFailed": "Submission failed",
       "imageRequired": "Please upload at least one photo of the AED.",
       "imageTooSmall": "Image file is too small",

@@ -3,14 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { api, ApiError, type UploadConfig } from '../lib/api'
 import type { AccessibilityType, ReportType } from '../types'
 
-const REPORT_TYPES: ReportType[] = [
-  'new_location',
-  'incorrect_info',
-  'unavailable',
-  'duplicate',
-]
+const REPORT_TYPES: ReportType[] = ['new_location', 'aed_issue']
 
-const ACCESSIBILITY_TYPES: AccessibilityType[] = ['24_7', 'business_hours', 'restricted_access']
+const ACCESSIBILITY_TYPES: AccessibilityType[] = ['24_7', 'business_hours']
 
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 type WeekdayKey = (typeof WEEKDAYS)[number]
@@ -150,6 +145,10 @@ function TimeDropdowns({
   )
 }
 
+function isDescriptionRequired(reportType: ReportType, isRestrictedAccess: boolean): boolean {
+  return reportType === 'aed_issue' || isRestrictedAccess
+}
+
 function isSubmitReady(params: {
   reportType: ReportType
   latitude: number | null
@@ -159,6 +158,7 @@ function isSubmitReady(params: {
   accessibilityType: AccessibilityType | ''
   weeklyHours: WeeklyHours
   description: string
+  isRestrictedAccess: boolean
 }): boolean {
   const {
     reportType,
@@ -169,10 +169,14 @@ function isSubmitReady(params: {
     accessibilityType,
     weeklyHours,
     description,
+    isRestrictedAccess,
   } = params
 
   if (latitude == null || longitude == null) return false
   if (images.length > uploadConfig.max_images_per_submission) return false
+  if (isDescriptionRequired(reportType, isRestrictedAccess) && !description.trim()) {
+    return false
+  }
 
   if (reportType === 'new_location') {
     if (images.length < uploadConfig.min_images_new_location) return false
@@ -183,7 +187,7 @@ function isSubmitReady(params: {
     return true
   }
 
-  return description.trim().length > 0
+  return true
 }
 
 function resolveSubmitError(
@@ -206,7 +210,9 @@ export function SubmitPage() {
   const [reportType, setReportType] = useState<ReportType>('new_location')
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
+  const [locationName, setLocationName] = useState('')
   const [address, setAddress] = useState('')
+  const [isRestrictedAccess, setIsRestrictedAccess] = useState(false)
   const [description, setDescription] = useState('')
   const [relatedAedId, setRelatedAedId] = useState('')
   const [accessibilityType, setAccessibilityType] = useState<AccessibilityType | ''>('')
@@ -281,6 +287,8 @@ export function SubmitPage() {
     }))
   }
 
+  const descriptionRequired = isDescriptionRequired(reportType, isRestrictedAccess)
+
   const canSubmit = useMemo(
     () =>
       isSubmitReady({
@@ -292,6 +300,7 @@ export function SubmitPage() {
         accessibilityType,
         weeklyHours,
         description,
+        isRestrictedAccess,
       }),
     [
       reportType,
@@ -302,6 +311,7 @@ export function SubmitPage() {
       accessibilityType,
       weeklyHours,
       description,
+      isRestrictedAccess,
     ],
   )
 
@@ -349,6 +359,11 @@ export function SubmitPage() {
       }
     }
 
+    if (descriptionRequired && !description.trim()) {
+      setError(t('report.errors.descriptionRequired'))
+      return
+    }
+
     setLoading(true)
     setError(null)
     setWarnings([])
@@ -361,7 +376,9 @@ export function SubmitPage() {
         form.append('accessibility_type', accessibilityType)
         if (openingHours) form.append('opening_hours', openingHours)
       }
+      if (locationName.trim()) form.append('location_name', locationName.trim())
       if (address) form.append('address', address)
+      form.append('is_restricted_access', String(isRestrictedAccess))
       if (description) form.append('description', description)
       if (contactEmail.trim()) form.append('contact_email', contactEmail.trim())
       if (relatedAedId.trim()) form.append('related_aed_id', relatedAedId.trim())
@@ -464,9 +481,7 @@ export function SubmitPage() {
           )}
         </div>
 
-        {(reportType === 'incorrect_info' ||
-          reportType === 'unavailable' ||
-          reportType === 'duplicate') && (
+        {reportType === 'aed_issue' && (
           <label className="block">
             <span className="text-sm font-medium text-slate-700">{t('report.relatedAed')}</span>
             <input
@@ -481,6 +496,17 @@ export function SubmitPage() {
         )}
 
         <label className="block">
+          <span className="text-sm font-medium text-slate-700">{t('report.locationName')}</span>
+          <input
+            type="text"
+            value={locationName}
+            onChange={(e) => setLocationName(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+            placeholder={t('report.locationNamePlaceholder')}
+          />
+        </label>
+
+        <label className="block">
           <span className="text-sm font-medium text-slate-700">{t('report.address')}</span>
           <input
             type="text"
@@ -491,14 +517,62 @@ export function SubmitPage() {
           />
         </label>
 
+        <fieldset>
+          <legend className="text-sm font-medium text-slate-700">{t('report.accessTypeLabel')}</legend>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label
+              className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${
+                !isRestrictedAccess
+                  ? 'border-teal-500 bg-teal-50 text-teal-900'
+                  : 'border-slate-200 bg-white text-slate-700'
+              }`}
+            >
+              <input
+                type="radio"
+                name="access_type"
+                checked={!isRestrictedAccess}
+                onChange={() => setIsRestrictedAccess(false)}
+                className="text-teal-600"
+              />
+              {t('report.accessTypes.free')}
+            </label>
+            <label
+              className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${
+                isRestrictedAccess
+                  ? 'border-teal-500 bg-teal-50 text-teal-900'
+                  : 'border-slate-200 bg-white text-slate-700'
+              }`}
+            >
+              <input
+                type="radio"
+                name="access_type"
+                checked={isRestrictedAccess}
+                onChange={() => setIsRestrictedAccess(true)}
+                className="text-teal-600"
+              />
+              {t('report.accessTypes.restricted')}
+            </label>
+          </div>
+        </fieldset>
+
         <label className="block">
-          <span className="text-sm font-medium text-slate-700">{t('report.description')}</span>
+          <span className="text-sm font-medium text-slate-700">
+            {t('report.description')} (
+            {descriptionRequired ? t('report.mandatory') : t('report.optional')})
+          </span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
+            required={descriptionRequired}
             className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
-            placeholder={t('report.descriptionPlaceholder')}
+            placeholder={
+              reportType === 'aed_issue'
+                ? t('report.descriptionIssuePlaceholder')
+                : isRestrictedAccess
+                  ? t('report.descriptionRestrictedPlaceholder')
+                  : t('report.descriptionPlaceholder')
+            }
           />
         </label>
 
@@ -506,7 +580,7 @@ export function SubmitPage() {
           <>
             <label className="block">
               <span className="text-sm font-medium text-slate-700">
-                {t('report.accessibility')}*
+                {t('report.accessibility')}
               </span>
               <select
                 value={accessibilityType}

@@ -67,21 +67,30 @@
     "typeLabel": "Тип доклад",
     "types": {
       "new_location": "Ново място на АВД",
-      "incorrect_info": "Неточна информация",
-      "unavailable": "АВД недостъпен/повреден",
-      "duplicate": "Дублиран АВД"
+      "aed_issue": "Проблем с АВД"
     },
     "useLocation": "Използвай текущото ми местоположение*",
     "locating": "Определяне на местоположението…",
     "locationOnSiteHint": "*Трябва да сте на локацията на дефибрилатора. Добавяне от разстояние не е възможно.",
     "locationCaptured": "Местоположение: {{lat}}, {{lon}}",
+    "locationName": "Име на локацията (по избор)",
+    "locationNamePlaceholder": "напр. Метростанция Младост 1, Mall of Sofia, Kaufland Разград",
     "address": "Адрес (по избор)",
     "addressPlaceholder": "напр. ул. Иван Вазов № 10",
+    "accessTypeLabel": "Достъп",
+    "accessTypes": {
+      "free": "Свободен достъп",
+      "restricted": "Ограничен достъп"
+    },
     "description": "Описание",
+    "mandatory": "задължително",
+    "optional": "по избор",
     "descriptionPlaceholder": "Етаж, сграда, бележки за достъп...",
+    "descriptionRestrictedPlaceholder": "Опишете как се получава достъп (напр. необходима е помощ от персонала, достъп през рецепция, намира се на втория етаж, достъп само в работно време и др.)",
+    "descriptionIssuePlaceholder": "Опишете проблема (неточна информация, недостъпен или повреден АВД, дублиран АВД или друг проблем).",
     "relatedAed": "ИД на съществуващ АВД (по избор)",
     "relatedAedPlaceholder": "напр. 12",
-    "accessibility": "Достъпност",
+    "accessibility": "Достъпност (задължително)",
     "accessibilityPlaceholder": "Изберете достъпност…",
     "accessibilityTypes": {
       "24_7": "24/7 — винаги достъпен",
@@ -125,6 +134,7 @@
       "accessibilityRequired": "Моля, изберете опция за достъпност.",
       "openingHoursRequired": "Моля, въведете работно време поне за един ден.",
       "openingHoursIncomplete": "За всеки ден изберете отваряне и затваряне, или оставете и двете на —.",
+      "descriptionRequired": "Моля, добавете описание.",
       "submissionFailed": "Изпращането неуспешно",
       "imageRequired": "Качете поне една снимка на АВД.",
       "imageTooSmall": "Снимката е твърде малка",
