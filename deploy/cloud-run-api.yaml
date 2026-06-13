@@ -38,7 +38,7 @@ spec:
             - name: STORAGE_BACKEND
               value: gcs
             - name: GCS_IMAGES_PUBLIC_URL_BASE
-              value: "https://PLACEHOLDER.example/aed-images"
+              value: "https://storage.googleapis.com/aed-locator-dev-images"
             - name: GCS_SIGNED_UPLOAD_TTL_SECONDS
               value: "900"
             - name: GCS_SIGNED_READ_TTL_SECONDS
