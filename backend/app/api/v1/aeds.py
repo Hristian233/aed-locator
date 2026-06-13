@@ -84,6 +84,8 @@ async def submit_aed(
     longitude: float = Form(...),
     report_type: str = Form("new_location"),
     address: str | None = Form(None),
+    location_name: str | None = Form(None),
+    is_restricted_access: bool = Form(False),
     description: str | None = Form(None),
     accessibility_type: str = Form("24_7"),
     opening_hours: str | None = Form(None),
@@ -141,6 +143,8 @@ async def submit_aed(
         latitude=latitude,
         longitude=longitude,
         address=address,
+        location_name=location_name,
+        is_restricted_access=is_restricted_access,
         description=description,
         accessibility_type=accessibility_type,  # type: ignore[arg-type]
         opening_hours=opening_hours,

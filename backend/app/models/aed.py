@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 
 from geoalchemy2 import Geography
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -22,9 +22,7 @@ class AccessibilityType(str, enum.Enum):
 
 class ReportType(str, enum.Enum):
     new_location = "new_location"
-    incorrect_info = "incorrect_info"
-    unavailable = "unavailable"
-    duplicate = "duplicate"
+    aed_issue = "aed_issue"
 
 
 def _enum_values(enum_cls: type[enum.Enum]) -> list[str]:
@@ -42,6 +40,8 @@ class AED(Base):
     latitude: Mapped[float] = mapped_column(nullable=False)
     longitude: Mapped[float] = mapped_column(nullable=False)
     address: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    location_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_restricted_access: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     image_object_keys: Mapped[str | None] = mapped_column(Text, nullable=True)

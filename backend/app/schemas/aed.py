@@ -5,13 +5,15 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 AccessibilityTypeLiteral = Literal["24_7", "business_hours", "restricted_access"]
-ReportTypeLiteral = Literal["new_location", "incorrect_info", "unavailable", "duplicate"]
+ReportTypeLiteral = Literal["new_location", "aed_issue"]
 
 
 class AEDBase(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     address: str | None = Field(default=None, max_length=512)
+    location_name: str | None = Field(default=None, max_length=255)
+    is_restricted_access: bool = False
     description: str | None = Field(default=None, max_length=2000)
     accessibility_type: AccessibilityTypeLiteral = "24_7"
     opening_hours: str | None = Field(default=None, max_length=4000)
@@ -25,6 +27,8 @@ class AEDCreate(AEDBase):
 
 class AEDUpdate(BaseModel):
     address: str | None = Field(default=None, max_length=512)
+    location_name: str | None = Field(default=None, max_length=255)
+    is_restricted_access: bool | None = None
     description: str | None = Field(default=None, max_length=2000)
     verification_status: Literal["pending", "verified", "rejected"] | None = None
     accessibility_type: AccessibilityTypeLiteral | None = None

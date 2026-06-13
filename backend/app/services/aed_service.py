@@ -60,6 +60,8 @@ def _to_response(
         latitude=aed.latitude,
         longitude=aed.longitude,
         address=aed.address,
+        location_name=aed.location_name,
+        is_restricted_access=aed.is_restricted_access,
         description=aed.description,
         image_url=image_urls[0] if image_urls else None,
         image_urls=image_urls,
@@ -236,6 +238,9 @@ class AEDService:
         if report_type != ReportType.new_location and not data.description:
             raise ValueError("Please provide details describing the issue.")
 
+        if data.is_restricted_access and not data.description:
+            raise ValueError("Please provide access details when restricted access is selected.")
+
         if report_type != ReportType.new_location and data.related_aed_id:
             related = await self.aed_repo.get_by_id(data.related_aed_id)
             if not related:
@@ -278,6 +283,8 @@ class AEDService:
             latitude=data.latitude,
             longitude=data.longitude,
             address=data.address,
+            location_name=data.location_name,
+            is_restricted_access=data.is_restricted_access,
             description=data.description,
             image_url=image_object_keys[0] if image_object_keys else None,
             image_object_keys=serialized_keys,
@@ -319,6 +326,10 @@ class AEDService:
             return None
         if data.address is not None:
             aed.address = data.address
+        if data.location_name is not None:
+            aed.location_name = data.location_name
+        if data.is_restricted_access is not None:
+            aed.is_restricted_access = data.is_restricted_access
         if data.description is not None:
             aed.description = data.description
         if data.verification_status is not None:
