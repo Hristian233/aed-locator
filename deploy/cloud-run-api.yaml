@@ -43,8 +43,6 @@ spec:
               value: "900"
             - name: GCS_SIGNED_READ_TTL_SECONDS
               value: "3600"
-            - name: GCS_IMAGE_PREFIX
-              value: aed-images
             - name: IMAGE_PROCESSOR_URL
               valueFrom:
                 secretKeyRef:
