@@ -23,6 +23,8 @@ spec:
           env:
             - name: ENVIRONMENT
               value: production
+            # GCS buckets auto-resolve from ENVIRONMENT (prod -> aed-locator-prod-*).
+            # Override with GCS_TEMP_BUCKET / GCS_IMAGES_BUCKET if needed.
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -33,6 +35,23 @@ spec:
                 secretKeyRef:
                   name: aed-locator-secrets
                   key: secret_key
+            - name: STORAGE_BACKEND
+              value: gcs
+            - name: GCS_IMAGES_PUBLIC_URL_BASE
+              value: "https://storage.googleapis.com/aed-locator-dev-images"
+            - name: GCS_SIGNED_UPLOAD_TTL_SECONDS
+              value: "900"
+            - name: GCS_SIGNED_READ_TTL_SECONDS
+              value: "3600"
+            - name: IMAGE_PROCESSOR_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aed-locator-secrets
+                  key: image_processor_url
+            - name: MAX_IMAGE_BYTES
+              value: "10485760"
+            - name: ALLOWED_IMAGE_TYPES
+              value: image/jpeg,image/png,image/webp
           resources:
             limits:
               cpu: "1"

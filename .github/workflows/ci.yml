@@ -32,6 +32,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt email-validator
+      - run: python3 -m pytest
+        env:
+          DATABASE_URL: postgresql+asyncpg://aed:aed@localhost:5432/aed_locator
       - run: alembic upgrade head
         env:
           DATABASE_URL: postgresql+asyncpg://aed:aed@localhost:5432/aed_locator

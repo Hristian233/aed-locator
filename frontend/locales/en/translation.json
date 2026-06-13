@@ -72,6 +72,7 @@
       "duplicate": "Duplicate AED"
     },
     "useLocation": "Use my current location*",
+    "locating": "Getting your location…",
     "locationOnSiteHint": "*You must be at the defibrillator's location. Remote submission is not supported.",
     "locationCaptured": "Location: {{lat}}, {{lon}}",
     "address": "Address (optional)",
@@ -108,10 +109,14 @@
     },
     "photo": "Photo of AED (optional)",
     "photoRequired": "Photo of AED (required)",
+    "photoLimitHint": "Up to {{max}} photos allowed.",
+    "photosSelected": "{{count}} of {{max}} photos selected",
     "email": "Email for follow-up (optional)",
     "emailPlaceholder": "you@example.com",
     "submit": "Submit for verification",
     "submitting": "Submitting…",
+    "uploadingMessage": "Uploading your report and photos. Please wait, this might take up to 1 minute",
+    "successPendingApproval": "Thank you! Your report was submitted and is pending admin approval before it appears on the map.",
     "successRedirect": "Report submitted. Returning to map…",
     "errors": {
       "geoUnsupported": "Geolocation is not supported on this device.",
@@ -123,6 +128,8 @@
       "submissionFailed": "Submission failed",
       "imageRequired": "Please upload at least one photo of the AED.",
       "imageTooSmall": "Image file is too small",
+      "imageTooLarge": "Image must be {{maxMb}} MB or smaller.",
+      "imageTooMany": "You can upload at most {{max}} photos. Remove extra photos and try again.",
       "imageType": "Invalid image type. Use JPEG, PNG, or WebP."
     }
   },

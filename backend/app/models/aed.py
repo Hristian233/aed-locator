@@ -44,6 +44,7 @@ class AED(Base):
     address: Mapped[str | None] = mapped_column(String(512), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    image_object_keys: Mapped[str | None] = mapped_column(Text, nullable=True)
     verification_status: Mapped[VerificationStatus] = mapped_column(
         Enum(VerificationStatus), default=VerificationStatus.pending, index=True
     )

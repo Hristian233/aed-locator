@@ -16,6 +16,7 @@ export interface AED {
   address: string | null
   description: string | null
   image_url: string | null
+  image_urls?: string[]
   verification_status: string
   accessibility_type?: AccessibilityType
   opening_hours?: string | null

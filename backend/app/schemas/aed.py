@@ -34,6 +34,7 @@ class AEDUpdate(BaseModel):
 class AEDResponse(AEDBase):
     id: int
     image_url: str | None
+    image_urls: list[str] = []
     verification_status: str
     report_type: str
     contact_email: str | None = None
@@ -44,6 +45,11 @@ class AEDResponse(AEDBase):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("image_urls", mode="before")
+    @classmethod
+    def default_image_urls(cls, v: list[str] | None) -> list[str]:
+        return v or []
 
 
 class AEDListResponse(BaseModel):
@@ -71,3 +77,9 @@ class SubmissionResult(BaseModel):
     @classmethod
     def default_warnings(cls, v: list[str] | None) -> list[str]:
         return v or []
+
+
+class TempImageUploadMeta(BaseModel):
+    temp_object_key: str = Field(min_length=1, max_length=512)
+    content_type: str | None = Field(default=None, max_length=128)
+    content_length: int | None = Field(default=None, ge=1024)

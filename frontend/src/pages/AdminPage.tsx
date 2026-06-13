@@ -100,12 +100,17 @@ export function AdminPage() {
                   })}
                 </p>
               )}
-              {aed.image_url && (
-                <img
-                  src={aed.image_url}
-                  alt={t('admin.submittedImage')}
-                  className="mt-3 max-h-40 rounded-lg object-cover"
-                />
+              {(aed.image_urls?.length ? aed.image_urls : aed.image_url ? [aed.image_url] : []).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(aed.image_urls?.length ? aed.image_urls : aed.image_url ? [aed.image_url] : []).map((url) => (
+                    <img
+                      key={url}
+                      src={url}
+                      alt={t('admin.submittedImage')}
+                      className="max-h-40 rounded-lg object-cover"
+                    />
+                  ))}
+                </div>
               )}
               <div className="mt-4 flex gap-2">
                 <button

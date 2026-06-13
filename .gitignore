@@ -26,3 +26,6 @@ uploads/
 
 # Scripts (local dev helpers)
 /backend/scripts/run.ps1
+
+# GCP Secrets
+secrets/

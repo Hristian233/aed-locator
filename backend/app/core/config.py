@@ -1,7 +1,7 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,9 +28,18 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
+    storage_backend: Literal["local", "gcs"] = "local"
     upload_dir: str = "uploads"
-    max_upload_bytes: int = 5 * 1024 * 1024
-    allowed_image_types: set[str] = {"image/jpeg", "image/png", "image/webp"}
+    gcs_temp_bucket: str = ""
+    gcs_images_bucket: str = ""
+    gcs_images_public_url_base: str = "https://storage.googleapis.com/aed-locator-dev-images"
+    gcs_signed_upload_ttl_seconds: int = 900
+    gcs_signed_read_ttl_seconds: int = 3600
+    image_processor_url: str = "https://aed-image-processor-dev-iuhz7yxnaa-uc.a.run.app"
+    max_image_bytes: int = 10 * 1024 * 1024
+    max_images_per_submission: int = 5
+    min_images_new_location: int = 1
+    allowed_image_types: str = "image/jpeg,image/png,image/webp"
 
     google_maps_api_key: str = ""
 
@@ -39,6 +48,35 @@ class Settings(BaseSettings):
     min_aed_confidence: float = 0.35
 
     admin_emails: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def resolve_gcs_buckets(self) -> Self:
+        if not self.gcs_temp_bucket.strip():
+            self.gcs_temp_bucket = self._default_gcs_temp_bucket()
+        if not self.gcs_images_bucket.strip():
+            self.gcs_images_bucket = self._default_gcs_images_bucket()
+        return self
+
+    def _gcs_env_suffix(self) -> str:
+        return "prod" if self.environment == "production" else "dev"
+
+    def _default_gcs_temp_bucket(self) -> str:
+        return f"aed-locator-{self._gcs_env_suffix()}-inbox"
+
+    def _default_gcs_images_bucket(self) -> str:
+        return f"aed-locator-{self._gcs_env_suffix()}-aed-images"
+
+    @property
+    def allowed_image_mime_types(self) -> set[str]:
+        return {item.strip() for item in self.allowed_image_types.split(",") if item.strip()}
+
+    @property
+    def uses_gcs_storage(self) -> bool:
+        return self.storage_backend == "gcs"
+
+    @property
+    def max_upload_bytes(self) -> int:
+        return self.max_image_bytes
 
 
 @lru_cache

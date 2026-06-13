@@ -1,7 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, ApiError, type UploadConfig } from '../lib/api'
 import type { AccessibilityType, ReportType } from '../types'
 
 const REPORT_TYPES: ReportType[] = [
@@ -16,7 +15,19 @@ const ACCESSIBILITY_TYPES: AccessibilityType[] = ['24_7', 'business_hours', 'res
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 type WeekdayKey = (typeof WEEKDAYS)[number]
 
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const DEFAULT_ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const DEFAULT_MAX_IMAGES = 5
+const DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024
+const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
+  storage_backend: 'local',
+  environment: 'development',
+  max_image_bytes: DEFAULT_MAX_IMAGE_BYTES,
+  max_images_per_submission: DEFAULT_MAX_IMAGES,
+  min_images_new_location: 1,
+  allowed_image_types: DEFAULT_ALLOWED_IMAGE_TYPES,
+  gcs_temp_bucket: null,
+  gcs_images_bucket: null,
+}
 
 const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))
 const MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))
@@ -84,6 +95,15 @@ function serializeWeeklyHours(hours: WeeklyHours): string | null {
   return Object.keys(data).length > 0 ? JSON.stringify(data) : null
 }
 
+function LoadingSpinner({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <span
+      className={`inline-block animate-spin rounded-full border-2 border-teal-600 border-t-transparent ${className}`}
+      aria-hidden="true"
+    />
+  )
+}
+
 function TimeDropdowns({
   value,
   onChange,
@@ -130,9 +150,59 @@ function TimeDropdowns({
   )
 }
 
+function isSubmitReady(params: {
+  reportType: ReportType
+  latitude: number | null
+  longitude: number | null
+  images: File[]
+  uploadConfig: UploadConfig
+  accessibilityType: AccessibilityType | ''
+  weeklyHours: WeeklyHours
+  description: string
+}): boolean {
+  const {
+    reportType,
+    latitude,
+    longitude,
+    images,
+    uploadConfig,
+    accessibilityType,
+    weeklyHours,
+    description,
+  } = params
+
+  if (latitude == null || longitude == null) return false
+  if (images.length > uploadConfig.max_images_per_submission) return false
+
+  if (reportType === 'new_location') {
+    if (images.length < uploadConfig.min_images_new_location) return false
+    if (!accessibilityType) return false
+    if (accessibilityType === 'business_hours' && validateWeeklyHours(weeklyHours) !== null) {
+      return false
+    }
+    return true
+  }
+
+  return description.trim().length > 0
+}
+
+function resolveSubmitError(
+  err: unknown,
+  t: (key: string, options?: Record<string, unknown>) => string,
+  maxImages: number,
+): string {
+  if (err instanceof ApiError) {
+    if (err.code === 'image_too_many') {
+      return t('report.errors.imageTooMany', { max: err.maxImages ?? maxImages })
+    }
+    return err.message
+  }
+  if (err instanceof Error) return err.message
+  return t('report.errors.submissionFailed')
+}
+
 export function SubmitPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [reportType, setReportType] = useState<ReportType>('new_location')
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
@@ -142,35 +212,60 @@ export function SubmitPage() {
   const [accessibilityType, setAccessibilityType] = useState<AccessibilityType | ''>('')
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHours>(emptyWeeklyHours)
   const [contactEmail, setContactEmail] = useState('')
-  const [image, setImage] = useState<File | null>(null)
+  const [images, setImages] = useState<File[]>([])
+  const [uploadConfig, setUploadConfig] = useState<UploadConfig>(DEFAULT_UPLOAD_CONFIG)
   const [loading, setLoading] = useState(false)
+  const [locationLoading, setLocationLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .uploadConfig()
+      .then((config) => {
+        if (!cancelled) setUploadConfig(config)
+      })
+      .catch(() => {
+        if (!cancelled) setUploadConfig(DEFAULT_UPLOAD_CONFIG)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const captureLocation = () => {
     if (!('geolocation' in navigator)) {
       setError(t('report.errors.geoUnsupported'))
       return
     }
+    setLocationLoading(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLatitude(pos.coords.latitude)
         setLongitude(pos.coords.longitude)
         setError(null)
+        setLocationLoading(false)
       },
-      () => setError(t('report.errors.geoFailed')),
+      () => {
+        setError(t('report.errors.geoFailed'))
+        setLocationLoading(false)
+      },
       { enableHighAccuracy: true },
     )
   }
 
-  const validateImage = (file: File | null): string | null => {
-    if (!file) return null
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+  const validateImage = (file: File): string | null => {
+    if (!uploadConfig.allowed_image_types.includes(file.type)) {
       return t('report.errors.imageType')
     }
     if (file.size < 1024) {
       return t('report.errors.imageTooSmall')
+    }
+    const maxMb = Math.max(1, Math.round(uploadConfig.max_image_bytes / (1024 * 1024)))
+    if (file.size > uploadConfig.max_image_bytes) {
+      return t('report.errors.imageTooLarge', { maxMb })
     }
     return null
   }
@@ -186,20 +281,52 @@ export function SubmitPage() {
     }))
   }
 
+  const canSubmit = useMemo(
+    () =>
+      isSubmitReady({
+        reportType,
+        latitude,
+        longitude,
+        images,
+        uploadConfig,
+        accessibilityType,
+        weeklyHours,
+        description,
+      }),
+    [
+      reportType,
+      latitude,
+      longitude,
+      images,
+      uploadConfig,
+      accessibilityType,
+      weeklyHours,
+      description,
+    ],
+  )
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (latitude == null || longitude == null) {
       setError(t('report.errors.locationRequired'))
       return
     }
-    if (reportType === 'new_location' && !image) {
+    if (reportType === 'new_location' && images.length === 0) {
       setError(t('report.errors.imageRequired'))
       return
     }
-    const imageError = validateImage(image)
-    if (imageError) {
-      setError(imageError)
+    if (images.length > uploadConfig.max_images_per_submission) {
+      setError(
+        t('report.errors.imageTooMany', { max: uploadConfig.max_images_per_submission }),
+      )
       return
+    }
+    for (const file of images) {
+      const imageError = validateImage(file)
+      if (imageError) {
+        setError(imageError)
+        return
+      }
     }
 
     let openingHours: string | null = null
@@ -238,14 +365,39 @@ export function SubmitPage() {
       if (description) form.append('description', description)
       if (contactEmail.trim()) form.append('contact_email', contactEmail.trim())
       if (relatedAedId.trim()) form.append('related_aed_id', relatedAedId.trim())
-      if (image) form.append('image', image)
+      if (images.length > 0) {
+        const maxImages = uploadConfig.max_images_per_submission
+        if (images.length > maxImages) {
+          throw new Error(t('report.errors.imageTooMany', { max: maxImages }))
+        }
+        if (uploadConfig.storage_backend === 'gcs') {
+          const signedBatch = await api.createSignedUploadUrls(
+            images.map((file) => ({
+              content_type: file.type,
+              content_length: file.size,
+              total_images: images.length,
+            })),
+          )
+          for (let i = 0; i < images.length; i += 1) {
+            const file = images[i]
+            const signed = signedBatch.items[i]
+            await api.uploadToSignedUrl(signed.upload_url, file, file.type)
+            form.append('image_temp_object_key', signed.object_key)
+            form.append('image_content_type', file.type)
+            form.append('image_content_length', String(file.size))
+          }
+        } else {
+          for (const file of images) {
+            form.append('images', file)
+          }
+        }
+      }
 
       const result = await api.submitAed(form)
       setWarnings(result.warnings)
       setSubmitted(true)
-      setTimeout(() => navigate('/'), 2500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('report.errors.submissionFailed'))
+      setError(resolveSubmitError(err, t, uploadConfig.max_images_per_submission))
     } finally {
       setLoading(false)
     }
@@ -255,12 +407,6 @@ export function SubmitPage() {
     <div className="mx-auto max-w-lg flex-1 overflow-y-auto p-4 pb-12">
       <h1 className="text-2xl font-bold text-slate-900">{t('report.title')}</h1>
       <p className="mt-1 text-sm text-slate-600">{t('report.subtitle')}</p>
-
-      {submitted && (
-        <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
-          {t('report.successRedirect')}
-        </p>
-      )}
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <fieldset>
@@ -293,14 +439,23 @@ export function SubmitPage() {
           <button
             type="button"
             onClick={captureLocation}
-            className="w-full rounded-xl border-2 border-dashed border-teal-300 bg-teal-50 py-4 text-sm font-semibold text-teal-800"
+            disabled={locationLoading}
+            aria-busy={locationLoading}
+            className="w-full rounded-xl border-2 border-dashed border-teal-300 bg-teal-50 py-4 text-sm font-semibold text-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {latitude != null
-              ? t('report.locationCaptured', {
-                  lat: latitude.toFixed(5),
-                  lon: longitude?.toFixed(5),
-                })
-              : t('report.useLocation')}
+            {locationLoading ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <LoadingSpinner />
+                {t('report.locating')}
+              </span>
+            ) : latitude != null ? (
+              t('report.locationCaptured', {
+                lat: latitude.toFixed(5),
+                lon: longitude?.toFixed(5),
+              })
+            ) : (
+              t('report.useLocation')
+            )}
           </button>
           {reportType === 'new_location' && (
             <p className="mt-2 text-center text-sm text-slate-500">
@@ -350,7 +505,9 @@ export function SubmitPage() {
         {reportType === 'new_location' && (
           <>
             <label className="block">
-              <span className="text-sm font-medium text-slate-700">{t('report.accessibility')}</span>
+              <span className="text-sm font-medium text-slate-700">
+                {t('report.accessibility')}*
+              </span>
               <select
                 value={accessibilityType}
                 onChange={(e) => {
@@ -417,18 +574,41 @@ export function SubmitPage() {
           <span className="text-sm font-medium text-slate-700">
             {reportType === 'new_location' ? t('report.photoRequired') : t('report.photo')}
           </span>
+          <p className="mt-1 text-xs text-slate-500">
+            {t('report.photoLimitHint', { max: uploadConfig.max_images_per_submission })}
+          </p>
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={uploadConfig.allowed_image_types.join(',')}
             capture="environment"
+            multiple
             required={reportType === 'new_location'}
             onChange={(e) => {
-              const file = e.target.files?.[0] ?? null
-              setImage(file)
-              setError(validateImage(file))
+              const input = e.target
+              const allSelected = Array.from(input.files ?? [])
+              const max = uploadConfig.max_images_per_submission
+              if (allSelected.length > max) {
+                input.value = ''
+                setImages([])
+                setError(t('report.errors.imageTooMany', { max }))
+                return
+              }
+              setImages(allSelected)
+              const firstValidationError = allSelected
+                .map((file) => validateImage(file))
+                .find(Boolean)
+              setError(firstValidationError ?? null)
             }}
             className="mt-1 w-full text-sm"
           />
+          {images.length > 0 && (
+            <p className="mt-1 text-xs text-slate-500">
+              {t('report.photosSelected', {
+                count: images.length,
+                max: uploadConfig.max_images_per_submission,
+              })}
+            </p>
+          )}
         </label>
 
         <label className="block">
@@ -443,6 +623,21 @@ export function SubmitPage() {
           />
         </label>
 
+        {loading && (
+          <div
+            className="flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-900"
+            role="status"
+            aria-live="polite"
+          >
+            <LoadingSpinner />
+            {t('report.uploadingMessage')}
+          </div>
+        )}
+        {submitted && (
+          <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
+            {t('report.successPendingApproval')}
+          </p>
+        )}
         {error && (
           <p className="text-sm text-red-600" role="alert">
             {error}
@@ -458,10 +653,17 @@ export function SubmitPage() {
 
         <button
           type="submit"
-          disabled={loading || submitted}
+          disabled={loading || submitted || !canSubmit}
           className="w-full cursor-pointer rounded-xl bg-teal-600 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? t('report.submitting') : t('report.submit')}
+          {loading ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <LoadingSpinner className="h-4 w-4 border-white border-t-transparent" />
+              {t('report.submitting')}
+            </span>
+          ) : (
+            t('report.submit')
+          )}
         </button>
       </form>
     </div>
