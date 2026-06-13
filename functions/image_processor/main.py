@@ -125,6 +125,7 @@ def process_image_request(request: Request) -> tuple[Any, int]:
     try:
         final_blob = client.bucket(params["final_bucket"]).blob(params["final_object_key"])
         final_blob.upload_from_string(processed, content_type="image/webp")
+        temp_blob.delete()
     except Exception as exc:
         return _error(f"Could not store processed image: {exc}", status=500)
 
