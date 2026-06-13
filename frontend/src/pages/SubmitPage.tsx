@@ -408,25 +408,7 @@ export function SubmitPage() {
       <h1 className="text-2xl font-bold text-slate-900">{t('report.title')}</h1>
       <p className="mt-1 text-sm text-slate-600">{t('report.subtitle')}</p>
 
-      {submitted && (
-        <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
-          {t('report.successPendingApproval')}
-        </p>
-      )}
-
-      <form onSubmit={onSubmit} className="relative mt-6 space-y-4" aria-busy={loading}>
-        {loading && (
-          <div
-            className="absolute inset-0 z-10 flex items-start justify-center rounded-xl bg-white/80 pt-8"
-            role="status"
-            aria-live="polite"
-          >
-            <div className="mx-4 flex max-w-sm items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-900 shadow-sm">
-              <LoadingSpinner />
-              {t('report.uploadingMessage')}
-            </div>
-          </div>
-        )}
+      <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <fieldset>
           <legend className="text-sm font-medium text-slate-700">{t('report.typeLabel')}</legend>
           <div className="mt-2 space-y-2">
@@ -641,6 +623,21 @@ export function SubmitPage() {
           />
         </label>
 
+        {loading && (
+          <div
+            className="flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-900"
+            role="status"
+            aria-live="polite"
+          >
+            <LoadingSpinner />
+            {t('report.uploadingMessage')}
+          </div>
+        )}
+        {submitted && (
+          <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
+            {t('report.successPendingApproval')}
+          </p>
+        )}
         {error && (
           <p className="text-sm text-red-600" role="alert">
             {error}
