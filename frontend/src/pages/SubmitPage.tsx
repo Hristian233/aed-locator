@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
 import { api, ApiError, type UploadConfig } from '../lib/api'
 import type { AccessibilityType, ReportType } from '../types'
 
@@ -94,6 +93,15 @@ function serializeWeeklyHours(hours: WeeklyHours): string | null {
     }
   }
   return Object.keys(data).length > 0 ? JSON.stringify(data) : null
+}
+
+function LoadingSpinner({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <span
+      className={`inline-block animate-spin rounded-full border-2 border-teal-600 border-t-transparent ${className}`}
+      aria-hidden="true"
+    />
+  )
 }
 
 function TimeDropdowns({
@@ -195,7 +203,6 @@ function resolveSubmitError(
 
 export function SubmitPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [reportType, setReportType] = useState<ReportType>('new_location')
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
@@ -208,6 +215,7 @@ export function SubmitPage() {
   const [images, setImages] = useState<File[]>([])
   const [uploadConfig, setUploadConfig] = useState<UploadConfig>(DEFAULT_UPLOAD_CONFIG)
   const [loading, setLoading] = useState(false)
+  const [locationLoading, setLocationLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
@@ -232,13 +240,18 @@ export function SubmitPage() {
       setError(t('report.errors.geoUnsupported'))
       return
     }
+    setLocationLoading(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLatitude(pos.coords.latitude)
         setLongitude(pos.coords.longitude)
         setError(null)
+        setLocationLoading(false)
       },
-      () => setError(t('report.errors.geoFailed')),
+      () => {
+        setError(t('report.errors.geoFailed'))
+        setLocationLoading(false)
+      },
       { enableHighAccuracy: true },
     )
   }
@@ -383,7 +396,6 @@ export function SubmitPage() {
       const result = await api.submitAed(form)
       setWarnings(result.warnings)
       setSubmitted(true)
-      setTimeout(() => navigate('/'), 2500)
     } catch (err) {
       setError(resolveSubmitError(err, t, uploadConfig.max_images_per_submission))
     } finally {
@@ -398,11 +410,23 @@ export function SubmitPage() {
 
       {submitted && (
         <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
-          {t('report.successRedirect')}
+          {t('report.successPendingApproval')}
         </p>
       )}
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <form onSubmit={onSubmit} className="relative mt-6 space-y-4" aria-busy={loading}>
+        {loading && (
+          <div
+            className="absolute inset-0 z-10 flex items-start justify-center rounded-xl bg-white/80 pt-8"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="mx-4 flex max-w-sm items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-900 shadow-sm">
+              <LoadingSpinner />
+              {t('report.uploadingMessage')}
+            </div>
+          </div>
+        )}
         <fieldset>
           <legend className="text-sm font-medium text-slate-700">{t('report.typeLabel')}</legend>
           <div className="mt-2 space-y-2">
@@ -433,14 +457,23 @@ export function SubmitPage() {
           <button
             type="button"
             onClick={captureLocation}
-            className="w-full rounded-xl border-2 border-dashed border-teal-300 bg-teal-50 py-4 text-sm font-semibold text-teal-800"
+            disabled={locationLoading}
+            aria-busy={locationLoading}
+            className="w-full rounded-xl border-2 border-dashed border-teal-300 bg-teal-50 py-4 text-sm font-semibold text-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {latitude != null
-              ? t('report.locationCaptured', {
-                  lat: latitude.toFixed(5),
-                  lon: longitude?.toFixed(5),
-                })
-              : t('report.useLocation')}
+            {locationLoading ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <LoadingSpinner />
+                {t('report.locating')}
+              </span>
+            ) : latitude != null ? (
+              t('report.locationCaptured', {
+                lat: latitude.toFixed(5),
+                lon: longitude?.toFixed(5),
+              })
+            ) : (
+              t('report.useLocation')
+            )}
           </button>
           {reportType === 'new_location' && (
             <p className="mt-2 text-center text-sm text-slate-500">
@@ -490,7 +523,9 @@ export function SubmitPage() {
         {reportType === 'new_location' && (
           <>
             <label className="block">
-              <span className="text-sm font-medium text-slate-700">{t('report.accessibility')}</span>
+              <span className="text-sm font-medium text-slate-700">
+                {t('report.accessibility')}*
+              </span>
               <select
                 value={accessibilityType}
                 onChange={(e) => {
@@ -624,7 +659,14 @@ export function SubmitPage() {
           disabled={loading || submitted || !canSubmit}
           className="w-full cursor-pointer rounded-xl bg-teal-600 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? t('report.submitting') : t('report.submit')}
+          {loading ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <LoadingSpinner className="h-4 w-4 border-white border-t-transparent" />
+              {t('report.submitting')}
+            </span>
+          ) : (
+            t('report.submit')
+          )}
         </button>
       </form>
     </div>

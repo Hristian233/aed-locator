@@ -72,6 +72,7 @@
       "duplicate": "Duplicate AED"
     },
     "useLocation": "Use my current location*",
+    "locating": "Getting your location…",
     "locationOnSiteHint": "*You must be at the defibrillator's location. Remote submission is not supported.",
     "locationCaptured": "Location: {{lat}}, {{lon}}",
     "address": "Address (optional)",
@@ -114,6 +115,8 @@
     "emailPlaceholder": "you@example.com",
     "submit": "Submit for verification",
     "submitting": "Submitting…",
+    "uploadingMessage": "Uploading your report and photos. Please wait, this might take up to 1 minute",
+    "successPendingApproval": "Thank you! Your report was submitted and is pending admin approval before it appears on the map.",
     "successRedirect": "Report submitted. Returning to map…",
     "errors": {
       "geoUnsupported": "Geolocation is not supported on this device.",
