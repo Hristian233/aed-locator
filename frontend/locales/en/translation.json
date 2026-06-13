@@ -108,6 +108,8 @@
     },
     "photo": "Photo of AED (optional)",
     "photoRequired": "Photo of AED (required)",
+    "photoLimitHint": "Up to {{max}} photos allowed.",
+    "photosSelected": "{{count}} of {{max}} photos selected",
     "email": "Email for follow-up (optional)",
     "emailPlaceholder": "you@example.com",
     "submit": "Submit for verification",
@@ -124,8 +126,7 @@
       "imageRequired": "Please upload at least one photo of the AED.",
       "imageTooSmall": "Image file is too small",
       "imageTooLarge": "Image must be {{maxMb}} MB or smaller.",
-      "imageTooMany": "You can upload at most {{max}} photos.",
-      "photosSelected": "{{count}} of {{max}} photos selected",
+      "imageTooMany": "You can upload at most {{max}} photos. Remove extra photos and try again.",
       "imageType": "Invalid image type. Use JPEG, PNG, or WebP."
     }
   },
