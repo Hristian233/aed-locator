@@ -1,7 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { api, type UploadConfig } from '../lib/api'
+import { api, ApiError, type UploadConfig } from '../lib/api'
 import type { AccessibilityType, ReportType } from '../types'
 
 const REPORT_TYPES: ReportType[] = [
@@ -142,6 +142,57 @@ function TimeDropdowns({
   )
 }
 
+function isSubmitReady(params: {
+  reportType: ReportType
+  latitude: number | null
+  longitude: number | null
+  images: File[]
+  uploadConfig: UploadConfig
+  accessibilityType: AccessibilityType | ''
+  weeklyHours: WeeklyHours
+  description: string
+}): boolean {
+  const {
+    reportType,
+    latitude,
+    longitude,
+    images,
+    uploadConfig,
+    accessibilityType,
+    weeklyHours,
+    description,
+  } = params
+
+  if (latitude == null || longitude == null) return false
+  if (images.length > uploadConfig.max_images_per_submission) return false
+
+  if (reportType === 'new_location') {
+    if (images.length < uploadConfig.min_images_new_location) return false
+    if (!accessibilityType) return false
+    if (accessibilityType === 'business_hours' && validateWeeklyHours(weeklyHours) !== null) {
+      return false
+    }
+    return true
+  }
+
+  return description.trim().length > 0
+}
+
+function resolveSubmitError(
+  err: unknown,
+  t: (key: string, options?: Record<string, unknown>) => string,
+  maxImages: number,
+): string {
+  if (err instanceof ApiError) {
+    if (err.code === 'image_too_many') {
+      return t('report.errors.imageTooMany', { max: err.maxImages ?? maxImages })
+    }
+    return err.message
+  }
+  if (err instanceof Error) return err.message
+  return t('report.errors.submissionFailed')
+}
+
 export function SubmitPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -217,6 +268,30 @@ export function SubmitPage() {
     }))
   }
 
+  const canSubmit = useMemo(
+    () =>
+      isSubmitReady({
+        reportType,
+        latitude,
+        longitude,
+        images,
+        uploadConfig,
+        accessibilityType,
+        weeklyHours,
+        description,
+      }),
+    [
+      reportType,
+      latitude,
+      longitude,
+      images,
+      uploadConfig,
+      accessibilityType,
+      weeklyHours,
+      description,
+    ],
+  )
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (latitude == null || longitude == null) {
@@ -284,7 +359,11 @@ export function SubmitPage() {
         }
         if (uploadConfig.storage_backend === 'gcs') {
           const signedBatch = await api.createSignedUploadUrls(
-            images.map((file) => ({ content_type: file.type, content_length: file.size })),
+            images.map((file) => ({
+              content_type: file.type,
+              content_length: file.size,
+              total_images: images.length,
+            })),
           )
           for (let i = 0; i < images.length; i += 1) {
             const file = images[i]
@@ -306,7 +385,7 @@ export function SubmitPage() {
       setSubmitted(true)
       setTimeout(() => navigate('/'), 2500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('report.errors.submissionFailed'))
+      setError(resolveSubmitError(err, t, uploadConfig.max_images_per_submission))
     } finally {
       setLoading(false)
     }
@@ -478,6 +557,9 @@ export function SubmitPage() {
           <span className="text-sm font-medium text-slate-700">
             {reportType === 'new_location' ? t('report.photoRequired') : t('report.photo')}
           </span>
+          <p className="mt-1 text-xs text-slate-500">
+            {t('report.photoLimitHint', { max: uploadConfig.max_images_per_submission })}
+          </p>
           <input
             type="file"
             accept={uploadConfig.allowed_image_types.join(',')}
@@ -485,13 +567,20 @@ export function SubmitPage() {
             multiple
             required={reportType === 'new_location'}
             onChange={(e) => {
-              const selected = Array.from(e.target.files ?? []).slice(
-                0,
-                uploadConfig.max_images_per_submission,
-              )
-              setImages(selected)
-              const firstError = selected.map((file) => validateImage(file)).find(Boolean)
-              setError(firstError ?? null)
+              const input = e.target
+              const allSelected = Array.from(input.files ?? [])
+              const max = uploadConfig.max_images_per_submission
+              if (allSelected.length > max) {
+                input.value = ''
+                setImages([])
+                setError(t('report.errors.imageTooMany', { max }))
+                return
+              }
+              setImages(allSelected)
+              const firstValidationError = allSelected
+                .map((file) => validateImage(file))
+                .find(Boolean)
+              setError(firstValidationError ?? null)
             }}
             className="mt-1 w-full text-sm"
           />
@@ -532,7 +621,7 @@ export function SubmitPage() {
 
         <button
           type="submit"
-          disabled={loading || submitted}
+          disabled={loading || submitted || !canSubmit}
           className="w-full cursor-pointer rounded-xl bg-teal-600 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? t('report.submitting') : t('report.submit')}
