@@ -6,6 +6,8 @@ from app.core.config import Settings
 from app.models.aed import ReportType, VerificationStatus
 from app.repositories.aed_repository import AEDRepository
 from app.schemas.aed import AEDCreate, TempImageUploadMeta
+from app.core.api_errors import ApiValidationError
+from app.core.upload_limits import ImageTooManyError
 from app.services.aed_service import AEDService
 from app.services.image_processor import ImageProcessorError, ImageProcessorResult
 
@@ -104,7 +106,7 @@ async def test_submit_aed_rejects_too_many_images(gcs_settings) -> None:
         TempImageUploadMeta(temp_object_key=f"inbox/temp{i}") for i in range(6)
     ]
 
-    with pytest.raises(ValueError, match="At most 5"):
+    with pytest.raises(ImageTooManyError, match="At most 5"):
         await service.submit_aed(
             AEDCreate(latitude=42.6977, longitude=23.3219, report_type="new_location"),
             submitter=None,
@@ -120,7 +122,7 @@ async def test_submit_aed_requires_at_least_one_image_for_new_location() -> None
     service = AEDService(repo, storage=MagicMock(), ai=MagicMock(), image_processor=MagicMock())
     service.ai.check_spam.return_value = MagicMock(is_spam=False, score=0.0)
 
-    with pytest.raises(ValueError, match="At least one photo"):
+    with pytest.raises(ApiValidationError, match="image_required"):
         await service.submit_aed(
             AEDCreate(latitude=42.6977, longitude=23.3219, report_type="new_location"),
             submitter=None,
@@ -144,11 +146,12 @@ async def test_submit_aed_does_not_persist_when_processor_fails(gcs_settings) ->
     service = AEDService(repo, storage=storage, ai=MagicMock(), image_processor=processor)
     service.ai.check_spam.return_value = MagicMock(is_spam=False, score=0.0)
 
-    with pytest.raises(ValueError, match="Image processing failed"):
+    with pytest.raises(ApiValidationError) as exc_info:
         await service.submit_aed(
             AEDCreate(latitude=42.6977, longitude=23.3219, report_type="new_location"),
             submitter=None,
             temp_images=[TempImageUploadMeta(temp_object_key="inbox/temp123")],
         )
+    assert exc_info.value.code == "image_processing_failed"
 
     repo.create.assert_not_awaited()

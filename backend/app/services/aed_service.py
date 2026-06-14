@@ -3,6 +3,12 @@ from dataclasses import dataclass
 from geoalchemy2.elements import WKTElement
 
 from app.core.config import Settings, get_settings
+from app.core.api_errors import (
+    ApiValidationError,
+    SubmissionWarning,
+    duplicate_nearby_warning,
+    pending_review_warning,
+)
 from app.core.upload_limits import ImageTooManyError
 from app.core.logging import get_logger
 from app.models.aed import AED, AccessibilityType, ReportType, VerificationStatus
@@ -43,7 +49,7 @@ def _validate_image_count(image_count: int, report_type: ReportType, settings: S
     if image_count > settings.max_images_per_submission:
         raise ImageTooManyError(settings.max_images_per_submission)
     if report_type == ReportType.new_location and image_count < settings.min_images_new_location:
-        raise ValueError("At least one photo is required for new AED submissions.")
+        raise ApiValidationError("image_required")
 
 
 def _to_response(
@@ -174,11 +180,13 @@ class AEDService:
                     final_object_key=final_object_key,
                 )
             except ImageProcessorError as exc:
-                raise ValueError(exc.message) from exc
+                raise ApiValidationError("image_processing_failed", message=exc.message) from exc
             keys.append(processed.final_object_key)
         return keys
 
-    async def _analyze_images(self, object_keys: list[str], warnings: list[str]) -> float | None:
+    async def _analyze_images(
+        self, object_keys: list[str], warnings: list[SubmissionWarning]
+    ) -> float | None:
         best_confidence: float | None = None
         any_likely_aed = False
         analysis_failed = False
@@ -201,12 +209,8 @@ class AEDService:
             if analysis.likely_aed:
                 any_likely_aed = True
 
-        if analysis_failed:
-            warnings.append("Some images were saved but automated checks could not be run.")
-        if object_keys and not any_likely_aed:
-            warnings.append(
-                "Uploaded images may not show an AED. An admin will review this submission."
-            )
+        if analysis_failed or (object_keys and not any_likely_aed):
+            warnings.append(pending_review_warning())
         return best_confidence
 
     async def submit_aed(
@@ -218,14 +222,17 @@ class AEDService:
         temp_images: list[TempImageUploadMeta] | None = None,
     ) -> SubmissionResult:
         settings = get_settings()
-        warnings: list[str] = []
+        warnings: list[SubmissionWarning] = []
         duplicate_of_id: int | None = None
         local_images = local_images or []
         temp_images = temp_images or []
 
-        opening_hours = validate_opening_hours_json(data.opening_hours)
+        try:
+            opening_hours = validate_opening_hours_json(data.opening_hours)
+        except ValueError as exc:
+            raise ApiValidationError("opening_hours_invalid", message=str(exc)) from exc
         if data.accessibility_type == "business_hours" and not opening_hours:
-            raise ValueError("Opening hours are required for business-hours accessibility.")
+            raise ApiValidationError("opening_hours_required")
 
         report_type = ReportType(data.report_type)
         image_count = len(local_images) + len(temp_images)
@@ -233,40 +240,36 @@ class AEDService:
         if report_type == ReportType.new_location:
             _validate_image_count(image_count, report_type, settings)
         elif report_type == ReportType.aed_issue:
-            raise ValueError("Problem reports must be submitted via POST /reports.")
+            raise ApiValidationError("wrong_report_endpoint")
         elif image_count > 0:
             _validate_image_count(image_count, report_type, settings)
 
         if report_type != ReportType.new_location and not data.description:
-            raise ValueError("Please provide details describing the issue.")
+            raise ApiValidationError("description_required")
 
         if data.is_restricted_access and not data.description:
-            raise ValueError("Please provide access details when restricted access is selected.")
+            raise ApiValidationError("restricted_description_required")
 
         if report_type != ReportType.new_location and data.related_aed_id:
             related = await self.aed_repo.get_by_id(data.related_aed_id)
             if not related:
-                raise ValueError("Referenced AED was not found.")
+                raise ApiValidationError("related_aed_not_found")
 
         duplicate = await self.aed_repo.find_duplicate_nearby(
             data.latitude, data.longitude, settings.duplicate_radius_meters
         )
         if duplicate and report_type == ReportType.new_location:
             duplicate_of_id = duplicate.id
-            warnings.append(
-                f"Another AED is already registered within {settings.duplicate_radius_meters}m."
-            )
+            warnings.append(duplicate_nearby_warning(settings.duplicate_radius_meters))
 
         spam = self.ai.check_spam(data.description, data.address)
         if spam.is_spam:
-            raise ValueError("Submission flagged as potential spam.")
+            raise ApiValidationError("spam_detected")
 
         if settings.uses_gcs_storage and local_images:
-            raise ValueError(
-                "Upload photos using signed URLs, then submit image_temp_object_key for each image."
-            )
+            raise ApiValidationError("gcs_upload_required")
         if not settings.uses_gcs_storage and temp_images:
-            raise ValueError("Temporary image keys are only used with GCS storage.")
+            raise ApiValidationError("temp_keys_gcs_only")
 
         image_object_keys: list[str] = []
         if temp_images:

@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.deps import get_admin_user, get_aed_service, get_report_service
+from app.api.http_errors import not_found
 from app.api.v1.aeds import limiter
 from app.core.config import get_settings
 from app.models.aed import VerificationStatus
@@ -40,7 +41,7 @@ async def update_aed(
 ) -> AEDResponse:
     result = await aed_service.update_aed(aed_id, payload)
     if not result:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="AED not found")
+        raise not_found("aed_not_found", "AED not found")
     return result
 
 
@@ -52,7 +53,7 @@ async def verify_aed(
 ) -> AEDResponse:
     result = await aed_service.verify_aed(aed_id, VerificationStatus.verified)
     if not result:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="AED not found")
+        raise not_found("aed_not_found", "AED not found")
     return result
 
 
@@ -64,7 +65,7 @@ async def reject_aed(
 ) -> AEDResponse:
     result = await aed_service.verify_aed(aed_id, VerificationStatus.rejected)
     if not result:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="AED not found")
+        raise not_found("aed_not_found", "AED not found")
     return result
 
 
@@ -90,7 +91,7 @@ async def resolve_report(
 ) -> ReportResponse:
     result = await report_service.update_status(report_id, ReportStatus.resolved)
     if not result:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Report not found")
+        raise not_found("report_not_found", "Report not found")
     return result
 
 
@@ -104,5 +105,5 @@ async def dismiss_report(
 ) -> ReportResponse:
     result = await report_service.update_status(report_id, ReportStatus.dismissed)
     if not result:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Report not found")
+        raise not_found("report_not_found", "Report not found")
     return result

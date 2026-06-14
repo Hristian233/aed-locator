@@ -1,5 +1,10 @@
 from geoalchemy2.elements import WKTElement
 
+from app.core.api_errors import (
+    ApiValidationError,
+    SubmissionWarning,
+    pending_review_warning,
+)
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.core.upload_limits import ImageTooManyError
@@ -111,11 +116,13 @@ class ReportService:
                     final_object_key=final_object_key,
                 )
             except ImageProcessorError as exc:
-                raise ValueError(exc.message) from exc
+                raise ApiValidationError("image_processing_failed", message=exc.message) from exc
             keys.append(processed.final_object_key)
         return keys
 
-    async def _analyze_images(self, object_keys: list[str], warnings: list[str]) -> None:
+    async def _analyze_images(
+        self, object_keys: list[str], warnings: list[SubmissionWarning]
+    ) -> None:
         any_likely_aed = False
         analysis_failed = False
 
@@ -135,12 +142,8 @@ class ReportService:
             if analysis.likely_aed:
                 any_likely_aed = True
 
-        if analysis_failed:
-            warnings.append("Some images were saved but automated checks could not be run.")
-        if object_keys and not any_likely_aed:
-            warnings.append(
-                "Uploaded images may not show an AED. An admin will review this report."
-            )
+        if analysis_failed or (object_keys and not any_likely_aed):
+            warnings.append(pending_review_warning())
 
     async def submit_report(
         self,
@@ -151,17 +154,17 @@ class ReportService:
         temp_images: list[TempImageUploadMeta] | None = None,
     ) -> ReportSubmissionResult:
         settings = get_settings()
-        warnings: list[str] = []
+        warnings: list[SubmissionWarning] = []
         local_images = local_images or []
         temp_images = temp_images or []
 
         if not data.description.strip():
-            raise ValueError("Please provide a description of the problem.")
+            raise ApiValidationError("description_required")
 
         if data.aed_id is not None:
             related = await self.aed_repo.get_by_id(data.aed_id)
             if not related:
-                raise ValueError("Referenced AED was not found.")
+                raise ApiValidationError("related_aed_not_found")
 
         if (
             data.reporter_latitude is not None
@@ -170,7 +173,7 @@ class ReportService:
             data.reporter_latitude is None
             and data.reporter_longitude is not None
         ):
-            raise ValueError("Both reporter latitude and longitude are required together.")
+            raise ApiValidationError("reporter_location_incomplete")
 
         image_count = len(local_images) + len(temp_images)
         if image_count > 0:
@@ -178,14 +181,12 @@ class ReportService:
 
         spam = self.ai.check_spam(data.description, None)
         if spam.is_spam:
-            raise ValueError("Submission flagged as potential spam.")
+            raise ApiValidationError("spam_detected")
 
         if settings.uses_gcs_storage and local_images:
-            raise ValueError(
-                "Upload photos using signed URLs, then submit image_temp_object_key for each image."
-            )
+            raise ApiValidationError("gcs_upload_required")
         if not settings.uses_gcs_storage and temp_images:
-            raise ValueError("Temporary image keys are only used with GCS storage.")
+            raise ApiValidationError("temp_keys_gcs_only")
 
         image_object_keys: list[str] = []
         if temp_images:

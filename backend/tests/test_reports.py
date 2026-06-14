@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +10,8 @@ from app.models.report import ReportStatus
 from app.repositories.aed_repository import AEDRepository
 from app.repositories.report_repository import ReportRepository
 from app.schemas.report import ReportCreate, ReportResponse, ReportSubmissionResult
+from app.core.api_errors import ApiValidationError
+from app.services.aed_service import LocalImageUpload
 from app.services.report_service import ReportService
 
 
@@ -86,22 +88,28 @@ async def test_submit_report_with_optional_fields() -> None:
     storage.save_image = AsyncMock(return_value="uploads/report-photo.webp")
     storage.resolve_display_url.side_effect = lambda key: f"https://example/{key}"
 
+    settings = MagicMock()
+    settings.uses_gcs_storage = False
+    settings.max_images_per_submission = 5
+
     service = ReportService(report_repo, aed_repo, storage=storage, ai=MagicMock())
     service.ai.check_spam.return_value = MagicMock(is_spam=False, score=0.0)
     service.ai.analyze_image.return_value = MagicMock(likely_aed=True, confidence=0.8)
     storage.load_image_bytes = AsyncMock(return_value=b"webp")
+    storage.validate_upload_metadata = MagicMock()
 
-    result = await service.submit_report(
-        ReportCreate(
-            description="Incorrect address listed.",
-            aed_id=12,
-            reporter_latitude=42.6977,
-            reporter_longitude=23.3219,
-            contact_email="reporter@example.com",
-        ),
-        submitter=None,
-        local_images=[MagicMock(content=b"x" * 2000, content_type="image/jpeg")],
-    )
+    with patch("app.services.report_service.get_settings", return_value=settings):
+        result = await service.submit_report(
+            ReportCreate(
+                description="Incorrect address listed.",
+                aed_id=12,
+                reporter_latitude=42.6977,
+                reporter_longitude=23.3219,
+                contact_email="reporter@example.com",
+            ),
+            submitter=None,
+            local_images=[LocalImageUpload(content=b"x" * 2000, content_type="image/jpeg")],
+        )
 
     created = report_repo.create.await_args.args[0]
     assert created.aed_id == 12
@@ -121,7 +129,7 @@ async def test_submit_report_rejects_missing_description() -> None:
         ai=MagicMock(),
     )
 
-    with pytest.raises(ValueError, match="description"):
+    with pytest.raises(ApiValidationError, match="description_required"):
         await service.submit_report(ReportCreate(description="   "), submitter=None)
 
 
@@ -137,7 +145,7 @@ async def test_submit_report_rejects_invalid_aed_id() -> None:
     )
     service.ai.check_spam.return_value = MagicMock(is_spam=False, score=0.0)
 
-    with pytest.raises(ValueError, match="Referenced AED"):
+    with pytest.raises(ApiValidationError, match="related_aed_not_found"):
         await service.submit_report(
             ReportCreate(description="Issue with AED", aed_id=999),
             submitter=None,
@@ -219,12 +227,13 @@ def test_submit_report_http_rejects_missing_description(local_client: TestClient
     response = local_client.post("/api/v1/reports", data={"description": "   "})
 
     assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "description_required"
 
 
 def test_submit_report_http_rejects_invalid_aed_id(local_client: TestClient) -> None:
     mock_service = MagicMock(spec=ReportService)
     mock_service.submit_report = AsyncMock(
-        side_effect=ValueError("Referenced AED was not found.")
+        side_effect=ApiValidationError("related_aed_not_found")
     )
     app = local_client.app
     app.dependency_overrides[get_report_service] = lambda: mock_service
@@ -236,7 +245,7 @@ def test_submit_report_http_rejects_invalid_aed_id(local_client: TestClient) -> 
 
     app.dependency_overrides.clear()
     assert response.status_code == 400
-    assert "Referenced AED" in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "related_aed_not_found"
 
 
 def test_submit_aed_rejects_aed_issue_report_type(local_client: TestClient) -> None:
@@ -251,7 +260,7 @@ def test_submit_aed_rejects_aed_issue_report_type(local_client: TestClient) -> N
     )
 
     assert response.status_code == 400
-    assert "POST /reports" in response.json()["detail"]
+    assert response.json()["detail"]["code"] == "wrong_report_endpoint"
 
 
 def test_submit_report_rejects_more_than_max_images(local_client: TestClient) -> None:

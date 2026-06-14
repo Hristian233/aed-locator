@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.core.api_errors import SubmissionWarning
+
 
 class ReportCreate(BaseModel):
     description: str = Field(min_length=1, max_length=2000)
@@ -63,9 +65,9 @@ class ReportListResponse(BaseModel):
 
 class ReportSubmissionResult(BaseModel):
     report: ReportResponse
-    warnings: list[str] = []
+    warnings: list[SubmissionWarning] = []
 
     @field_validator("warnings", mode="before")
     @classmethod
-    def default_warnings(cls, v: list[str] | None) -> list[str]:
+    def default_warnings(cls, v: list | None) -> list:
         return v or []

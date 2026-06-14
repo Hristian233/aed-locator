@@ -2,8 +2,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.api.http_errors import raise_bad_request
+from app.core.api_errors import ApiValidationError
 from app.core.config import get_settings
-from app.core.upload_limits import image_too_many_detail
+from app.core.upload_limits import ImageTooManyError, image_too_many_detail
 from app.schemas.uploads import (
     SignedUploadBatchRequest,
     SignedUploadBatchResponse,
@@ -24,10 +26,7 @@ def get_storage_service() -> StorageService:
 def _reject_if_too_many_images(count: int) -> None:
     settings = get_settings()
     if count > settings.max_images_per_submission:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=image_too_many_detail(settings.max_images_per_submission),
-        )
+        raise_bad_request(ImageTooManyError(settings.max_images_per_submission))
 
 
 @router.get("/config")
@@ -55,11 +54,11 @@ def _create_signed_upload(
             content_length=payload.content_length,
         )
     except ImageValidationError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise_bad_request(exc)
     except GCSStorageError as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
+            detail={"code": "storage_unavailable", "message": str(exc)},
         ) from exc
 
     return SignedUploadResponse(
@@ -78,7 +77,7 @@ async def create_signed_upload_url(
     if not settings.uses_gcs_storage:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Direct image uploads are not enabled for this environment.",
+            detail={"code": "direct_upload_disabled", "message": "Direct image uploads are not enabled for this environment."},
         )
     _reject_if_too_many_images(payload.total_images)
     return _create_signed_upload(payload, storage)
@@ -93,7 +92,7 @@ async def create_signed_upload_urls(
     if not settings.uses_gcs_storage:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Direct image uploads are not enabled for this environment.",
+            detail={"code": "direct_upload_disabled", "message": "Direct image uploads are not enabled for this environment."},
         )
     _reject_if_too_many_images(len(payload.uploads))
 

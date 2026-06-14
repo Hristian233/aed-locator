@@ -1,16 +1,17 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
 
 from app.api.deps import get_current_user_optional, get_report_service
+from app.api.http_errors import raise_bad_request
 from app.api.v1.aeds import limiter
+from app.core.api_errors import ApiValidationError
 from app.core.config import get_settings
 from app.core.upload_limits import ImageTooManyError, image_too_many_detail
 from app.models.user import User
 from app.schemas.aed import TempImageUploadMeta
 from app.schemas.report import ReportCreate, ReportSubmissionResult
 from app.services.aed_service import LocalImageUpload
-from app.services.image_validation import ImageValidationError
 from app.services.report_service import ReportService
 from app.services.storage_service import StorageService
 
@@ -72,29 +73,20 @@ async def submit_report(
 
     max_images = settings.max_images_per_submission
     if len(upload_files) > max_images or len(temp_images) > max_images:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=image_too_many_detail(max_images),
-        )
+        raise_bad_request(ImageTooManyError(max_images))
     if len(upload_files) + len(temp_images) > max_images:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=image_too_many_detail(max_images),
-        )
+        raise_bad_request(ImageTooManyError(max_images))
 
     if settings.uses_gcs_storage and upload_files:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="Upload photos using signed URLs, then submit image_temp_object_key for each image.",
-        )
+        raise_bad_request(ApiValidationError("gcs_upload_required"))
 
     for upload_file in upload_files:
         content_type = upload_file.content_type or ""
         content = await upload_file.read()
         try:
             storage.validate_upload_metadata(content_type, len(content))
-        except ImageValidationError as exc:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        except Exception as exc:
+            raise_bad_request(exc)
         local_images.append(LocalImageUpload(content=content, content_type=content_type))
 
     data = ReportCreate(
@@ -111,10 +103,5 @@ async def submit_report(
             local_images=local_images,
             temp_images=temp_images,
         )
-    except ImageTooManyError as exc:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=image_too_many_detail(exc.max_images),
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        raise_bad_request(exc)

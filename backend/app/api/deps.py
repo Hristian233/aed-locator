@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
+from app.api.http_errors import forbidden, unauthorized
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,7 +35,7 @@ async def get_current_user(
     user: Annotated[User | None, Depends(get_current_user_optional)],
 ) -> User:
     if not user:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise unauthorized("not_authenticated", "Not authenticated")
     return user
 
 
@@ -42,7 +43,7 @@ async def get_admin_user(
     user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     if user.role != UserRole.admin:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin access required")
+        raise forbidden("admin_required", "Admin access required")
     return user
 
 
