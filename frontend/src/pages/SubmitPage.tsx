@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError, type UploadConfig } from '../lib/api'
-import type { AccessibilityType, ReportType } from '../types'
+import { AedSearchSelect } from '../components/AedSearchSelect'
+import type { AccessibilityType, AED, ReportType } from '../types'
 
 const REPORT_TYPES: ReportType[] = ['new_location', 'aed_issue']
 
@@ -214,7 +215,10 @@ export function SubmitPage() {
   const [address, setAddress] = useState('')
   const [isRestrictedAccess, setIsRestrictedAccess] = useState(false)
   const [description, setDescription] = useState('')
-  const [relatedAedId, setRelatedAedId] = useState('')
+  const [relatedAedId, setRelatedAedId] = useState<number | null>(null)
+  const [availableAeds, setAvailableAeds] = useState<AED[]>([])
+  const [aedsLoading, setAedsLoading] = useState(false)
+  const [aedsLoadError, setAedsLoadError] = useState<string | null>(null)
   const [accessibilityType, setAccessibilityType] = useState<AccessibilityType | ''>('')
   const [weeklyHours, setWeeklyHours] = useState<WeeklyHours>(emptyWeeklyHours)
   const [contactEmail, setContactEmail] = useState('')
@@ -240,6 +244,35 @@ export function SubmitPage() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (reportType !== 'aed_issue') {
+      setRelatedAedId(null)
+      return
+    }
+
+    let cancelled = false
+    setAedsLoading(true)
+    setAedsLoadError(null)
+    api
+      .listAllAeds()
+      .then((aeds) => {
+        if (!cancelled) setAvailableAeds(aeds)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvailableAeds([])
+          setAedsLoadError(t('report.errors.relatedAedLoadFailed'))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAedsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [reportType, t])
 
   const captureLocation = () => {
     if (!('geolocation' in navigator)) {
@@ -381,7 +414,7 @@ export function SubmitPage() {
       form.append('is_restricted_access', String(isRestrictedAccess))
       if (description) form.append('description', description)
       if (contactEmail.trim()) form.append('contact_email', contactEmail.trim())
-      if (relatedAedId.trim()) form.append('related_aed_id', relatedAedId.trim())
+      if (relatedAedId != null) form.append('related_aed_id', String(relatedAedId))
       if (images.length > 0) {
         const maxImages = uploadConfig.max_images_per_submission
         if (images.length > maxImages) {
@@ -482,17 +515,16 @@ export function SubmitPage() {
         </div>
 
         {reportType === 'aed_issue' && (
-          <label className="block">
+          <div className="block">
             <span className="text-sm font-medium text-slate-700">{t('report.relatedAed')}</span>
-            <input
-              type="number"
-              min={1}
+            <AedSearchSelect
+              aeds={availableAeds}
               value={relatedAedId}
-              onChange={(e) => setRelatedAedId(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
-              placeholder={t('report.relatedAedPlaceholder')}
+              onChange={setRelatedAedId}
+              loading={aedsLoading}
+              loadError={aedsLoadError}
             />
-          </label>
+          </div>
         )}
 
         <label className="block">

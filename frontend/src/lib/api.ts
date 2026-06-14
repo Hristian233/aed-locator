@@ -153,6 +153,21 @@ export const api = {
   listAeds: (page = 1, pageSize = 100) =>
     request<AEDListResponse>(`/api/v1/aeds?page=${page}&page_size=${pageSize}`),
 
+  listAllAeds: async () => {
+    const pageSize = 100
+    let page = 1
+    const items: AED[] = []
+    while (true) {
+      const response = await request<AEDListResponse>(
+        `/api/v1/aeds?page=${page}&page_size=${pageSize}`,
+      )
+      items.push(...response.items)
+      if (!response.has_more) break
+      page += 1
+    }
+    return items
+  },
+
   nearestAeds: (
     lat: number,
     lon: number,
