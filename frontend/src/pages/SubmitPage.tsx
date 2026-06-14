@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { api, ApiError, type UploadConfig } from '../lib/api'
+import { api, type UploadConfig } from '../lib/api'
+import { formatSubmitError, simpleFormError, type FormErrorDisplay } from '../lib/apiErrors'
 import { AedSearchSelect } from '../components/AedSearchSelect'
 import { AedReadOnlySummary } from '../components/AedReadOnlySummary'
+import { FormErrorAlert } from '../components/FormErrorAlert'
 import type { AccessibilityType, AED, ReportType } from '../types'
 
 const REPORT_TYPES: ReportType[] = ['new_location', 'aed_issue']
@@ -194,21 +196,6 @@ function isSubmitReady(params: {
   return true
 }
 
-function resolveSubmitError(
-  err: unknown,
-  t: (key: string, options?: Record<string, unknown>) => string,
-  maxImages: number,
-): string {
-  if (err instanceof ApiError) {
-    if (err.code === 'image_too_many') {
-      return t('report.errors.imageTooMany', { max: err.maxImages ?? maxImages })
-    }
-    return err.message
-  }
-  if (err instanceof Error) return err.message
-  return t('report.errors.submissionFailed')
-}
-
 export function SubmitPage() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
@@ -230,7 +217,7 @@ export function SubmitPage() {
   const [uploadConfig, setUploadConfig] = useState<UploadConfig>(DEFAULT_UPLOAD_CONFIG)
   const [loading, setLoading] = useState(false)
   const [locationLoading, setLocationLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<FormErrorDisplay | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
 
@@ -294,7 +281,7 @@ export function SubmitPage() {
 
   const captureLocation = () => {
     if (!('geolocation' in navigator)) {
-      setError(t('report.errors.geoUnsupported'))
+      setError(simpleFormError(t('report.errors.geoUnsupported')))
       return
     }
     setLocationLoading(true)
@@ -306,7 +293,7 @@ export function SubmitPage() {
         setLocationLoading(false)
       },
       () => {
-        setError(t('report.errors.geoFailed'))
+        setError(simpleFormError(t('report.errors.geoFailed')))
         setLocationLoading(false)
       },
       { enableHighAccuracy: true },
@@ -404,21 +391,23 @@ export function SubmitPage() {
     e.preventDefault()
     if (images.length > uploadConfig.max_images_per_submission) {
       setError(
-        t('report.errors.imageTooMany', { max: uploadConfig.max_images_per_submission }),
+        simpleFormError(
+          t('report.errors.imageTooMany', { max: uploadConfig.max_images_per_submission }),
+        ),
       )
       return
     }
     for (const file of images) {
       const imageError = validateImage(file)
       if (imageError) {
-        setError(imageError)
+        setError(simpleFormError(imageError))
         return
       }
     }
 
     if (reportType === 'aed_issue') {
       if (!description.trim()) {
-        setError(t('report.errors.descriptionRequired'))
+        setError(simpleFormError(t('report.errors.descriptionRequired')))
         return
       }
 
@@ -438,7 +427,7 @@ export function SubmitPage() {
         setWarnings(result.warnings)
         setSubmitted(true)
       } catch (err) {
-        setError(resolveSubmitError(err, t, uploadConfig.max_images_per_submission))
+        setError(formatSubmitError(err, t, uploadConfig.max_images_per_submission))
       } finally {
         setLoading(false)
       }
@@ -446,26 +435,28 @@ export function SubmitPage() {
     }
 
     if (latitude == null || longitude == null) {
-      setError(t('report.errors.locationRequired'))
+      setError(simpleFormError(t('report.errors.locationRequired')))
       return
     }
     if (images.length === 0) {
-      setError(t('report.errors.imageRequired'))
+      setError(simpleFormError(t('report.errors.imageRequired')))
       return
     }
 
     let openingHours: string | null = null
     if (!accessibilityType) {
-      setError(t('report.errors.accessibilityRequired'))
+      setError(simpleFormError(t('report.errors.accessibilityRequired')))
       return
     }
     if (accessibilityType === 'business_hours') {
       const hoursError = validateWeeklyHours(weeklyHours)
       if (hoursError) {
         setError(
-          hoursError === 'partial'
-            ? t('report.errors.openingHoursIncomplete')
-            : t('report.errors.openingHoursRequired'),
+          simpleFormError(
+            hoursError === 'partial'
+              ? t('report.errors.openingHoursIncomplete')
+              : t('report.errors.openingHoursRequired'),
+          ),
         )
         return
       }
@@ -473,7 +464,7 @@ export function SubmitPage() {
     }
 
     if (descriptionRequired && !description.trim()) {
-      setError(t('report.errors.descriptionRequired'))
+      setError(simpleFormError(t('report.errors.descriptionRequired')))
       return
     }
 
@@ -498,7 +489,7 @@ export function SubmitPage() {
       setWarnings(result.warnings)
       setSubmitted(true)
     } catch (err) {
-      setError(resolveSubmitError(err, t, uploadConfig.max_images_per_submission))
+      setError(formatSubmitError(err, t, uploadConfig.max_images_per_submission))
     } finally {
       setLoading(false)
     }
@@ -804,14 +795,14 @@ export function SubmitPage() {
               if (allSelected.length > max) {
                 input.value = ''
                 setImages([])
-                setError(t('report.errors.imageTooMany', { max }))
+                setError(simpleFormError(t('report.errors.imageTooMany', { max })))
                 return
               }
               setImages(allSelected)
               const firstValidationError = allSelected
                 .map((file) => validateImage(file))
                 .find(Boolean)
-              setError(firstValidationError ?? null)
+              setError(firstValidationError ? simpleFormError(firstValidationError) : null)
             }}
             className="mt-1 w-full text-sm"
           />
@@ -854,11 +845,7 @@ export function SubmitPage() {
               : t('report.successPendingApproval')}
           </p>
         )}
-        {error && (
-          <p className="text-sm text-red-600" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <FormErrorAlert {...error} />}
         {warnings.length > 0 && (
           <ul className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
             {warnings.map((w) => (
