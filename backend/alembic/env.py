@@ -1,4 +1,5 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import get_settings
 from app.db.base import Base
-from app.models import AED, User  # noqa: F401
+from app.models import AED, Report, User  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
@@ -16,7 +17,8 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+migration_url = os.environ.get("DATABASE_MIGRATION_URL", settings.database_url)
+config.set_main_option("sqlalchemy.url", migration_url)
 
 
 def run_migrations_offline() -> None:
