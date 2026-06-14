@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { api, ApiError, type UploadConfig } from '../lib/api'
 import { AedSearchSelect } from '../components/AedSearchSelect'
+import { AccessibilityBadge } from '../components/AccessibilityBadge'
+import { formatAedPrimaryName } from '../lib/aedLabel'
 import type { AccessibilityType, AED, ReportType } from '../types'
 
 const REPORT_TYPES: ReportType[] = ['new_location', 'aed_issue']
@@ -147,7 +150,8 @@ function TimeDropdowns({
 }
 
 function isDescriptionRequired(reportType: ReportType, isRestrictedAccess: boolean): boolean {
-  return reportType === 'aed_issue' || isRestrictedAccess
+  if (reportType === 'aed_issue') return true
+  return isRestrictedAccess
 }
 
 function isSubmitReady(params: {
@@ -173,21 +177,21 @@ function isSubmitReady(params: {
     isRestrictedAccess,
   } = params
 
-  if (latitude == null || longitude == null) return false
   if (images.length > uploadConfig.max_images_per_submission) return false
   if (isDescriptionRequired(reportType, isRestrictedAccess) && !description.trim()) {
     return false
   }
 
-  if (reportType === 'new_location') {
-    if (images.length < uploadConfig.min_images_new_location) return false
-    if (!accessibilityType) return false
-    if (accessibilityType === 'business_hours' && validateWeeklyHours(weeklyHours) !== null) {
-      return false
-    }
+  if (reportType === 'aed_issue') {
     return true
   }
 
+  if (latitude == null || longitude == null) return false
+  if (images.length < uploadConfig.min_images_new_location) return false
+  if (!accessibilityType) return false
+  if (accessibilityType === 'business_hours' && validateWeeklyHours(weeklyHours) !== null) {
+    return false
+  }
   return true
 }
 
@@ -206,8 +210,53 @@ function resolveSubmitError(
   return t('report.errors.submissionFailed')
 }
 
+function AedReadOnlySummary({ aed }: { aed: AED }) {
+  const { t } = useTranslation()
+  const imageUrls = aed.image_urls?.length
+    ? aed.image_urls
+    : aed.image_url
+      ? [aed.image_url]
+      : []
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-semibold text-slate-900">
+        {formatAedPrimaryName(aed, t)}
+      </p>
+      {aed.address && <p className="mt-1 text-sm text-slate-600">{aed.address}</p>}
+      <p className="mt-1 text-xs text-slate-500">
+        {aed.latitude.toFixed(5)}, {aed.longitude.toFixed(5)}
+      </p>
+      <div className="mt-2">
+        <AccessibilityBadge aed={aed} compact />
+      </div>
+      {aed.opening_hours && (
+        <p className="mt-2 text-xs text-slate-600">
+          {t('report.openingHours')}: {aed.opening_hours}
+        </p>
+      )}
+      {aed.is_restricted_access && (
+        <p className="mt-1 text-xs text-amber-800">{t('report.accessTypes.restricted')}</p>
+      )}
+      {imageUrls.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {imageUrls.map((url) => (
+            <img
+              key={url}
+              src={url}
+              alt={t('report.selectedAedPhoto')}
+              className="max-h-32 rounded-lg object-cover"
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function SubmitPage() {
   const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
   const [reportType, setReportType] = useState<ReportType>('new_location')
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
@@ -229,6 +278,20 @@ export function SubmitPage() {
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    const type = searchParams.get('type')
+    const aedIdParam = searchParams.get('aed_id')
+    if (type === 'aed_issue') {
+      setReportType('aed_issue')
+    }
+    if (aedIdParam) {
+      const parsed = Number.parseInt(aedIdParam, 10)
+      if (!Number.isNaN(parsed)) {
+        setRelatedAedId(parsed)
+      }
+    }
+  }, [searchParams])
 
   useEffect(() => {
     let cancelled = false
@@ -322,6 +385,11 @@ export function SubmitPage() {
 
   const descriptionRequired = isDescriptionRequired(reportType, isRestrictedAccess)
 
+  const selectedAed = useMemo(
+    () => availableAeds.find((aed) => aed.id === relatedAedId) ?? null,
+    [availableAeds, relatedAedId],
+  )
+
   const canSubmit = useMemo(
     () =>
       isSubmitReady({
@@ -348,16 +416,37 @@ export function SubmitPage() {
     ],
   )
 
+  const appendImagesToForm = async (form: FormData) => {
+    if (images.length === 0) return
+    const maxImages = uploadConfig.max_images_per_submission
+    if (images.length > maxImages) {
+      throw new Error(t('report.errors.imageTooMany', { max: maxImages }))
+    }
+    if (uploadConfig.storage_backend === 'gcs') {
+      const signedBatch = await api.createSignedUploadUrls(
+        images.map((file) => ({
+          content_type: file.type,
+          content_length: file.size,
+          total_images: images.length,
+        })),
+      )
+      for (let i = 0; i < images.length; i += 1) {
+        const file = images[i]
+        const signed = signedBatch.items[i]
+        await api.uploadToSignedUrl(signed.upload_url, file, file.type)
+        form.append('image_temp_object_key', signed.object_key)
+        form.append('image_content_type', file.type)
+        form.append('image_content_length', String(file.size))
+      }
+    } else {
+      for (const file of images) {
+        form.append('images', file)
+      }
+    }
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (latitude == null || longitude == null) {
-      setError(t('report.errors.locationRequired'))
-      return
-    }
-    if (reportType === 'new_location' && images.length === 0) {
-      setError(t('report.errors.imageRequired'))
-      return
-    }
     if (images.length > uploadConfig.max_images_per_submission) {
       setError(
         t('report.errors.imageTooMany', { max: uploadConfig.max_images_per_submission }),
@@ -372,24 +461,60 @@ export function SubmitPage() {
       }
     }
 
-    let openingHours: string | null = null
-    if (reportType === 'new_location') {
-      if (!accessibilityType) {
-        setError(t('report.errors.accessibilityRequired'))
+    if (reportType === 'aed_issue') {
+      if (!description.trim()) {
+        setError(t('report.errors.descriptionRequired'))
         return
       }
-      if (accessibilityType === 'business_hours') {
-        const hoursError = validateWeeklyHours(weeklyHours)
-        if (hoursError) {
-          setError(
-            hoursError === 'partial'
-              ? t('report.errors.openingHoursIncomplete')
-              : t('report.errors.openingHoursRequired'),
-          )
-          return
-        }
-        openingHours = serializeWeeklyHours(weeklyHours)
+
+      setLoading(true)
+      setError(null)
+      setWarnings([])
+      try {
+        const form = new FormData()
+        form.append('description', description.trim())
+        if (relatedAedId != null) form.append('aed_id', String(relatedAedId))
+        if (latitude != null) form.append('reporter_latitude', String(latitude))
+        if (longitude != null) form.append('reporter_longitude', String(longitude))
+        if (contactEmail.trim()) form.append('contact_email', contactEmail.trim())
+        await appendImagesToForm(form)
+
+        const result = await api.submitReport(form)
+        setWarnings(result.warnings)
+        setSubmitted(true)
+      } catch (err) {
+        setError(resolveSubmitError(err, t, uploadConfig.max_images_per_submission))
+      } finally {
+        setLoading(false)
       }
+      return
+    }
+
+    if (latitude == null || longitude == null) {
+      setError(t('report.errors.locationRequired'))
+      return
+    }
+    if (images.length === 0) {
+      setError(t('report.errors.imageRequired'))
+      return
+    }
+
+    let openingHours: string | null = null
+    if (!accessibilityType) {
+      setError(t('report.errors.accessibilityRequired'))
+      return
+    }
+    if (accessibilityType === 'business_hours') {
+      const hoursError = validateWeeklyHours(weeklyHours)
+      if (hoursError) {
+        setError(
+          hoursError === 'partial'
+            ? t('report.errors.openingHoursIncomplete')
+            : t('report.errors.openingHoursRequired'),
+        )
+        return
+      }
+      openingHours = serializeWeeklyHours(weeklyHours)
     }
 
     if (descriptionRequired && !description.trim()) {
@@ -405,43 +530,14 @@ export function SubmitPage() {
       form.append('latitude', String(latitude))
       form.append('longitude', String(longitude))
       form.append('report_type', reportType)
-      if (reportType === 'new_location' && accessibilityType) {
-        form.append('accessibility_type', accessibilityType)
-        if (openingHours) form.append('opening_hours', openingHours)
-      }
+      form.append('accessibility_type', accessibilityType)
+      if (openingHours) form.append('opening_hours', openingHours)
       if (locationName.trim()) form.append('location_name', locationName.trim())
       if (address) form.append('address', address)
       form.append('is_restricted_access', String(isRestrictedAccess))
       if (description) form.append('description', description)
       if (contactEmail.trim()) form.append('contact_email', contactEmail.trim())
-      if (relatedAedId != null) form.append('related_aed_id', String(relatedAedId))
-      if (images.length > 0) {
-        const maxImages = uploadConfig.max_images_per_submission
-        if (images.length > maxImages) {
-          throw new Error(t('report.errors.imageTooMany', { max: maxImages }))
-        }
-        if (uploadConfig.storage_backend === 'gcs') {
-          const signedBatch = await api.createSignedUploadUrls(
-            images.map((file) => ({
-              content_type: file.type,
-              content_length: file.size,
-              total_images: images.length,
-            })),
-          )
-          for (let i = 0; i < images.length; i += 1) {
-            const file = images[i]
-            const signed = signedBatch.items[i]
-            await api.uploadToSignedUrl(signed.upload_url, file, file.type)
-            form.append('image_temp_object_key', signed.object_key)
-            form.append('image_content_type', file.type)
-            form.append('image_content_length', String(file.size))
-          }
-        } else {
-          for (const file of images) {
-            form.append('images', file)
-          }
-        }
-      }
+      await appendImagesToForm(form)
 
       const result = await api.submitAed(form)
       setWarnings(result.warnings)
@@ -485,128 +581,185 @@ export function SubmitPage() {
           </div>
         </fieldset>
 
-        <div>
-          <button
-            type="button"
-            onClick={captureLocation}
-            disabled={locationLoading}
-            aria-busy={locationLoading}
-            className="w-full rounded-xl border-2 border-dashed border-teal-300 bg-teal-50 py-4 text-sm font-semibold text-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {locationLoading ? (
-              <span className="inline-flex items-center justify-center gap-2">
-                <LoadingSpinner />
-                {t('report.locating')}
-              </span>
-            ) : latitude != null ? (
-              t('report.locationCaptured', {
-                lat: latitude.toFixed(5),
-                lon: longitude?.toFixed(5),
-              })
-            ) : (
-              t('report.useLocation')
+        {reportType === 'aed_issue' ? (
+          <>
+            <div className="block">
+              <span className="text-sm font-medium text-slate-700">{t('report.relatedAed')}</span>
+              <AedSearchSelect
+                aeds={availableAeds}
+                value={relatedAedId}
+                onChange={setRelatedAedId}
+                loading={aedsLoading}
+                loadError={aedsLoadError}
+              />
+            </div>
+
+            {selectedAed && (
+              <div>
+                <span className="text-sm font-medium text-slate-700">
+                  {t('report.selectedAedSummary')}
+                </span>
+                <div className="mt-2">
+                  <AedReadOnlySummary aed={selectedAed} />
+                </div>
+              </div>
             )}
-          </button>
-          {reportType === 'new_location' && (
-            <p className="mt-2 text-center text-sm text-slate-500">
-              {t('report.locationOnSiteHint')}
-            </p>
-          )}
-        </div>
 
-        {reportType === 'aed_issue' && (
-          <div className="block">
-            <span className="text-sm font-medium text-slate-700">{t('report.relatedAed')}</span>
-            <AedSearchSelect
-              aeds={availableAeds}
-              value={relatedAedId}
-              onChange={setRelatedAedId}
-              loading={aedsLoading}
-              loadError={aedsLoadError}
-            />
-          </div>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">
+                {t('report.description')} ({t('report.mandatory')})
+              </span>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                required
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                placeholder={t('report.descriptionIssuePlaceholder')}
+              />
+            </label>
+
+            <div>
+              <span className="text-sm font-medium text-slate-700">
+                {t('report.reporterLocation')} ({t('report.optional')})
+              </span>
+              <button
+                type="button"
+                onClick={captureLocation}
+                disabled={locationLoading}
+                aria-busy={locationLoading}
+                className="mt-1 w-full rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-4 text-sm font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {locationLoading ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <LoadingSpinner />
+                    {t('report.locating')}
+                  </span>
+                ) : latitude != null ? (
+                  t('report.locationCaptured', {
+                    lat: latitude.toFixed(5),
+                    lon: longitude?.toFixed(5),
+                  })
+                ) : (
+                  t('report.useReporterLocation')
+                )}
+              </button>
+              <p className="mt-2 text-center text-sm text-slate-500">
+                {t('report.reporterLocationHint')}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <button
+                type="button"
+                onClick={captureLocation}
+                disabled={locationLoading}
+                aria-busy={locationLoading}
+                className="w-full rounded-xl border-2 border-dashed border-teal-300 bg-teal-50 py-4 text-sm font-semibold text-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {locationLoading ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <LoadingSpinner />
+                    {t('report.locating')}
+                  </span>
+                ) : latitude != null ? (
+                  t('report.locationCaptured', {
+                    lat: latitude.toFixed(5),
+                    lon: longitude?.toFixed(5),
+                  })
+                ) : (
+                  t('report.useLocation')
+                )}
+              </button>
+              <p className="mt-2 text-center text-sm text-slate-500">
+                {t('report.locationOnSiteHint')}
+              </p>
+            </div>
+
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">{t('report.locationName')}</span>
+              <input
+                type="text"
+                value={locationName}
+                onChange={(e) => setLocationName(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                placeholder={t('report.locationNamePlaceholder')}
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">{t('report.address')}</span>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                placeholder={t('report.addressPlaceholder')}
+              />
+            </label>
+
+            <fieldset>
+              <legend className="text-sm font-medium text-slate-700">
+                {t('report.accessTypeLabel')}
+              </legend>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label
+                  className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${
+                    !isRestrictedAccess
+                      ? 'border-teal-500 bg-teal-50 text-teal-900'
+                      : 'border-slate-200 bg-white text-slate-700'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="access_type"
+                    checked={!isRestrictedAccess}
+                    onChange={() => setIsRestrictedAccess(false)}
+                    className="text-teal-600"
+                  />
+                  {t('report.accessTypes.free')}
+                </label>
+                <label
+                  className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${
+                    isRestrictedAccess
+                      ? 'border-teal-500 bg-teal-50 text-teal-900'
+                      : 'border-slate-200 bg-white text-slate-700'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="access_type"
+                    checked={isRestrictedAccess}
+                    onChange={() => setIsRestrictedAccess(true)}
+                    className="text-teal-600"
+                  />
+                  {t('report.accessTypes.restricted')}
+                </label>
+              </div>
+            </fieldset>
+
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">
+                {t('report.description')} (
+                {descriptionRequired ? t('report.mandatory') : t('report.optional')})
+              </span>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                required={descriptionRequired}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                placeholder={
+                  isRestrictedAccess
+                    ? t('report.descriptionRestrictedPlaceholder')
+                    : t('report.descriptionPlaceholder')
+                }
+              />
+            </label>
+          </>
         )}
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">{t('report.locationName')}</span>
-          <input
-            type="text"
-            value={locationName}
-            onChange={(e) => setLocationName(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
-            placeholder={t('report.locationNamePlaceholder')}
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">{t('report.address')}</span>
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
-            placeholder={t('report.addressPlaceholder')}
-          />
-        </label>
-
-        <fieldset>
-          <legend className="text-sm font-medium text-slate-700">{t('report.accessTypeLabel')}</legend>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <label
-              className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${
-                !isRestrictedAccess
-                  ? 'border-teal-500 bg-teal-50 text-teal-900'
-                  : 'border-slate-200 bg-white text-slate-700'
-              }`}
-            >
-              <input
-                type="radio"
-                name="access_type"
-                checked={!isRestrictedAccess}
-                onChange={() => setIsRestrictedAccess(false)}
-                className="text-teal-600"
-              />
-              {t('report.accessTypes.free')}
-            </label>
-            <label
-              className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${
-                isRestrictedAccess
-                  ? 'border-teal-500 bg-teal-50 text-teal-900'
-                  : 'border-slate-200 bg-white text-slate-700'
-              }`}
-            >
-              <input
-                type="radio"
-                name="access_type"
-                checked={isRestrictedAccess}
-                onChange={() => setIsRestrictedAccess(true)}
-                className="text-teal-600"
-              />
-              {t('report.accessTypes.restricted')}
-            </label>
-          </div>
-        </fieldset>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">
-            {t('report.description')} (
-            {descriptionRequired ? t('report.mandatory') : t('report.optional')})
-          </span>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            required={descriptionRequired}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
-            placeholder={
-              reportType === 'aed_issue'
-                ? t('report.descriptionIssuePlaceholder')
-                : isRestrictedAccess
-                  ? t('report.descriptionRestrictedPlaceholder')
-                  : t('report.descriptionPlaceholder')
-            }
-          />
-        </label>
 
         {reportType === 'new_location' && (
           <>
@@ -741,7 +894,9 @@ export function SubmitPage() {
         )}
         {submitted && (
           <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
-            {t('report.successPendingApproval')}
+            {reportType === 'aed_issue'
+              ? t('report.successIssueSubmitted')
+              : t('report.successPendingApproval')}
           </p>
         )}
         {error && (
@@ -768,7 +923,7 @@ export function SubmitPage() {
               {t('report.submitting')}
             </span>
           ) : (
-            t('report.submit')
+            reportType === 'aed_issue' ? t('report.submitIssue') : t('report.submit')
           )}
         </button>
       </form>

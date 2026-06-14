@@ -1,21 +1,20 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
-from app.api.deps import get_aed_service, get_current_user_optional
+from app.api.deps import get_current_user_optional, get_report_service
+from app.api.v1.aeds import limiter
 from app.core.config import get_settings
 from app.core.upload_limits import ImageTooManyError, image_too_many_detail
 from app.models.user import User
-from app.schemas.aed import AEDCreate, AEDListResponse, AEDResponse, NearestAEDQuery, SubmissionResult
 from app.schemas.aed import TempImageUploadMeta
-from app.services.aed_service import AEDService, LocalImageUpload
+from app.schemas.report import ReportCreate, ReportSubmissionResult
+from app.services.aed_service import LocalImageUpload
 from app.services.image_validation import ImageValidationError
+from app.services.report_service import ReportService
 from app.services.storage_service import StorageService
 
-router = APIRouter(prefix="/aeds", tags=["aeds"])
-limiter = Limiter(key_func=get_remote_address)
+router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 def _zip_temp_image_metadata(
@@ -39,70 +38,23 @@ def _zip_temp_image_metadata(
     return uploads
 
 
-@router.get("", response_model=AEDListResponse)
-async def list_aeds(
-    aed_service: Annotated[AEDService, Depends(get_aed_service)],
-    page: int = 1,
-    page_size: int = 50,
-    status: str | None = None,
-) -> AEDListResponse:
-    return await aed_service.list_aeds(page=page, page_size=page_size, status=status)
-
-
-@router.get("/nearest", response_model=list[AEDResponse])
-async def nearest_aeds(
-    query: Annotated[NearestAEDQuery, Depends()],
-    aed_service: Annotated[AEDService, Depends(get_aed_service)],
-) -> list[AEDResponse]:
-    return await aed_service.find_nearest(
-        query.latitude,
-        query.longitude,
-        limit=query.limit,
-        max_distance_meters=query.max_distance_meters,
-        reachable_only=query.reachable_only,
-    )
-
-
-@router.get("/{aed_id}", response_model=AEDResponse)
-async def get_aed(
-    aed_id: int,
-    aed_service: Annotated[AEDService, Depends(get_aed_service)],
-) -> AEDResponse:
-    aed = await aed_service.get_aed(aed_id)
-    if not aed:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="AED not found")
-    return aed
-
-
-@router.post("", response_model=SubmissionResult, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ReportSubmissionResult, status_code=status.HTTP_201_CREATED)
 @limiter.limit(get_settings().rate_limit_reports)
-async def submit_aed(
+async def submit_report(
     request: Request,
-    aed_service: Annotated[AEDService, Depends(get_aed_service)],
+    report_service: Annotated[ReportService, Depends(get_report_service)],
     user: Annotated[User | None, Depends(get_current_user_optional)],
-    latitude: float = Form(...),
-    longitude: float = Form(...),
-    report_type: str = Form("new_location"),
-    address: str | None = Form(None),
-    location_name: str | None = Form(None),
-    is_restricted_access: bool = Form(False),
-    description: str | None = Form(None),
-    accessibility_type: str = Form("24_7"),
-    opening_hours: str | None = Form(None),
+    description: str = Form(...),
+    aed_id: int | None = Form(None),
+    reporter_latitude: float | None = Form(None),
+    reporter_longitude: float | None = Form(None),
     contact_email: str | None = Form(None),
-    related_aed_id: int | None = Form(None),
     image: UploadFile | None = File(None),
     images: list[UploadFile] = File(default=[]),
     image_temp_object_key: list[str] = Form(default=[]),
     image_content_type: list[str] = Form(default=[]),
     image_content_length: list[int] = Form(default=[]),
-) -> SubmissionResult:
-    if report_type == "aed_issue":
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="Problem reports must be submitted via POST /reports.",
-        )
-
+) -> ReportSubmissionResult:
     settings = get_settings()
     storage = StorageService(settings)
     local_images: list[LocalImageUpload] = []
@@ -145,21 +97,15 @@ async def submit_aed(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         local_images.append(LocalImageUpload(content=content, content_type=content_type))
 
-    data = AEDCreate(
-        latitude=latitude,
-        longitude=longitude,
-        address=address,
-        location_name=location_name,
-        is_restricted_access=is_restricted_access,
+    data = ReportCreate(
         description=description,
-        accessibility_type=accessibility_type,  # type: ignore[arg-type]
-        opening_hours=opening_hours,
-        report_type=report_type,  # type: ignore[arg-type]
+        aed_id=aed_id,
+        reporter_latitude=reporter_latitude,
+        reporter_longitude=reporter_longitude,
         contact_email=contact_email or None,
-        related_aed_id=related_aed_id,
     )
     try:
-        return await aed_service.submit_aed(
+        return await report_service.submit_report(
             data,
             submitter=user,
             local_images=local_images,

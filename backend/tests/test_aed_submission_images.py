@@ -16,6 +16,8 @@ def _created_aed(image_keys: list[str]) -> MagicMock:
     aed.latitude = 42.6977
     aed.longitude = 23.3219
     aed.address = None
+    aed.location_name = None
+    aed.is_restricted_access = False
     aed.description = None
     aed.image_url = image_keys[0] if image_keys else None
     aed.image_object_keys = '["' + '","'.join(image_keys) + '"]' if image_keys else None

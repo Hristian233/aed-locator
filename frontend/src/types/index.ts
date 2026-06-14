@@ -50,3 +50,46 @@ export interface SubmissionResult {
   warnings: string[]
   duplicate_of_id: number | null
 }
+
+export type ReportStatus = 'pending' | 'reviewed' | 'dismissed' | 'resolved'
+
+export interface AEDSummary {
+  id: number
+  location_name: string | null
+  address: string | null
+  latitude: number
+  longitude: number
+  accessibility_type: string
+  opening_hours?: string | null
+  is_restricted_access: boolean
+  image_urls: string[]
+}
+
+export interface Report {
+  id: number
+  aed_id: number | null
+  description: string
+  reporter_latitude: number | null
+  reporter_longitude: number | null
+  image_url: string | null
+  image_urls?: string[]
+  contact_email: string | null
+  status: ReportStatus
+  spam_score?: number | null
+  created_at: string
+  updated_at: string
+  aed?: AEDSummary | null
+}
+
+export interface ReportListResponse {
+  items: Report[]
+  total: number
+  page: number
+  page_size: number
+  has_more: boolean
+}
+
+export interface ReportSubmissionResult {
+  report: Report
+  warnings: string[]
+}

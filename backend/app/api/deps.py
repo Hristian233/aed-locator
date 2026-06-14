@@ -8,9 +8,11 @@ from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.repositories.aed_repository import AEDRepository
+from app.repositories.report_repository import ReportRepository
 from app.repositories.user_repository import UserRepository
 from app.services.aed_service import AEDService
 from app.services.auth_service import AuthService
+from app.services.report_service import ReportService
 
 security = HTTPBearer(auto_error=False)
 
@@ -46,6 +48,10 @@ async def get_admin_user(
 
 def get_aed_service(db: Annotated[AsyncSession, Depends(get_db)]) -> AEDService:
     return AEDService(AEDRepository(db))
+
+
+def get_report_service(db: Annotated[AsyncSession, Depends(get_db)]) -> ReportService:
+    return ReportService(ReportRepository(db), AEDRepository(db))
 
 
 def get_auth_service(db: Annotated[AsyncSession, Depends(get_db)]) -> AuthService:

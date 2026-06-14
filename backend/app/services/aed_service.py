@@ -232,6 +232,8 @@ class AEDService:
 
         if report_type == ReportType.new_location:
             _validate_image_count(image_count, report_type, settings)
+        elif report_type == ReportType.aed_issue:
+            raise ValueError("Problem reports must be submitted via POST /reports.")
         elif image_count > 0:
             _validate_image_count(image_count, report_type, settings)
 

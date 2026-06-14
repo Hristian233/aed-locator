@@ -1,4 +1,12 @@
-import type { AED, AEDListResponse, AuthResponse, SubmissionResult } from '../types'
+import type {
+  AED,
+  AEDListResponse,
+  AuthResponse,
+  Report,
+  ReportListResponse,
+  ReportSubmissionResult,
+  SubmissionResult,
+} from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -233,14 +241,26 @@ export const api = {
   submitAed: (form: FormData) =>
     request<SubmissionResult>('/api/v1/aeds', { method: 'POST', body: form }),
 
+  submitReport: (form: FormData) =>
+    request<ReportSubmissionResult>('/api/v1/reports', { method: 'POST', body: form }),
+
   pendingAeds: (page = 1) =>
     request<AEDListResponse>(`/api/v1/admin/aeds/pending?page=${page}&page_size=20`),
+
+  pendingReports: (page = 1) =>
+    request<ReportListResponse>(`/api/v1/admin/reports/pending?page=${page}&page_size=20`),
 
   verifyAed: (id: number) =>
     request<AED>(`/api/v1/admin/aeds/${id}/verify`, { method: 'POST' }),
 
   rejectAed: (id: number) =>
     request<AED>(`/api/v1/admin/aeds/${id}/reject`, { method: 'POST' }),
+
+  resolveReport: (id: number) =>
+    request<Report>(`/api/v1/admin/reports/${id}/resolve`, { method: 'POST' }),
+
+  dismissReport: (id: number) =>
+    request<Report>(`/api/v1/admin/reports/${id}/dismiss`, { method: 'POST' }),
 }
 
 export function navigationUrl(lat: number, lon: number, label?: string): string {
