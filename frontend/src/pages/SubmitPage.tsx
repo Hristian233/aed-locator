@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { api, ApiError, type UploadConfig } from '../lib/api'
 import { AedSearchSelect } from '../components/AedSearchSelect'
-import { AccessibilityBadge } from '../components/AccessibilityBadge'
-import { formatAedPrimaryName } from '../lib/aedLabel'
+import { AedReadOnlySummary } from '../components/AedReadOnlySummary'
 import type { AccessibilityType, AED, ReportType } from '../types'
 
 const REPORT_TYPES: ReportType[] = ['new_location', 'aed_issue']
@@ -208,50 +207,6 @@ function resolveSubmitError(
   }
   if (err instanceof Error) return err.message
   return t('report.errors.submissionFailed')
-}
-
-function AedReadOnlySummary({ aed }: { aed: AED }) {
-  const { t } = useTranslation()
-  const imageUrls = aed.image_urls?.length
-    ? aed.image_urls
-    : aed.image_url
-      ? [aed.image_url]
-      : []
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-900">
-        {formatAedPrimaryName(aed, t)}
-      </p>
-      {aed.address && <p className="mt-1 text-sm text-slate-600">{aed.address}</p>}
-      <p className="mt-1 text-xs text-slate-500">
-        {aed.latitude.toFixed(5)}, {aed.longitude.toFixed(5)}
-      </p>
-      <div className="mt-2">
-        <AccessibilityBadge aed={aed} compact />
-      </div>
-      {aed.opening_hours && (
-        <p className="mt-2 text-xs text-slate-600">
-          {t('report.openingHours')}: {aed.opening_hours}
-        </p>
-      )}
-      {aed.is_restricted_access && (
-        <p className="mt-1 text-xs text-amber-800">{t('report.accessTypes.restricted')}</p>
-      )}
-      {imageUrls.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {imageUrls.map((url) => (
-            <img
-              key={url}
-              src={url}
-              alt={t('report.selectedAedPhoto')}
-              className="max-h-32 rounded-lg object-cover"
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 
 export function SubmitPage() {
