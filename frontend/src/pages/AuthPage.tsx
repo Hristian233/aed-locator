@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { formatApiError } from '../lib/apiErrors'
+import { FormErrorAlert } from '../components/FormErrorAlert'
 
 export function AuthPage() {
   const { t } = useTranslation()
@@ -11,7 +13,7 @@ export function AuthPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ReturnType<typeof formatApiError> | null>(null)
   const [loading, setLoading] = useState(false)
 
   const onSubmit = async (e: FormEvent) => {
@@ -23,7 +25,7 @@ export function AuthPage() {
       else await register(email, password, fullName || undefined)
       navigate('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.failed'))
+      setError(formatApiError(err, t, { context: 'auth' }))
     } finally {
       setLoading(false)
     }
@@ -72,11 +74,7 @@ export function AuthPage() {
           />
         </label>
 
-        {error && (
-          <p className="text-sm text-red-600" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <FormErrorAlert {...error} />}
 
         <button
           type="submit"

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { api, type UploadConfig } from '../lib/api'
-import { formatSubmitError, simpleFormError, type FormErrorDisplay } from '../lib/apiErrors'
+import { formatSubmitError, simpleFormError, translateSubmissionWarnings, type FormErrorDisplay } from '../lib/apiErrors'
 import { AedSearchSelect } from '../components/AedSearchSelect'
 import { AedReadOnlySummary } from '../components/AedReadOnlySummary'
 import { FormErrorAlert } from '../components/FormErrorAlert'
@@ -424,7 +424,7 @@ export function SubmitPage() {
         await appendImagesToForm(form)
 
         const result = await api.submitReport(form)
-        setWarnings(result.warnings)
+        setWarnings(translateSubmissionWarnings(result.warnings, t))
         setSubmitted(true)
       } catch (err) {
         setError(formatSubmitError(err, t, uploadConfig.max_images_per_submission))
@@ -486,7 +486,7 @@ export function SubmitPage() {
       await appendImagesToForm(form)
 
       const result = await api.submitAed(form)
-      setWarnings(result.warnings)
+      setWarnings(translateSubmissionWarnings(result.warnings, t))
       setSubmitted(true)
     } catch (err) {
       setError(formatSubmitError(err, t, uploadConfig.max_images_per_submission))

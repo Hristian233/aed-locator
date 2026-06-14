@@ -45,9 +45,14 @@ export interface AuthResponse {
   user: User
 }
 
+export interface SubmissionWarning {
+  code: string
+  params?: Record<string, string | number>
+}
+
 export interface SubmissionResult {
   aed: AED
-  warnings: string[]
+  warnings: SubmissionWarning[]
   duplicate_of_id: number | null
 }
 
@@ -91,5 +96,5 @@ export interface ReportListResponse {
 
 export interface ReportSubmissionResult {
   report: Report
-  warnings: string[]
+  warnings: SubmissionWarning[]
 }

@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
+import { formatApiError } from '../lib/apiErrors'
+import { FormErrorAlert } from '../components/FormErrorAlert'
 import { formatAedPrimaryName } from '../lib/aedLabel'
 import type { AED, Report } from '../types'
 import { CardSkeleton } from '../components/Skeleton'
@@ -17,7 +19,7 @@ export function AdminPage() {
   const [pendingAeds, setPendingAeds] = useState<AED[]>([])
   const [pendingReports, setPendingReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ReturnType<typeof formatApiError> | null>(null)
 
   const loadAeds = useCallback(async () => {
     const res = await api.pendingAeds()
@@ -39,7 +41,7 @@ export function AdminPage() {
         await loadReports()
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('admin.loadFailed'))
+      setError(formatApiError(err, t, { context: 'admin' }))
     } finally {
       setLoading(false)
     }
@@ -98,7 +100,11 @@ export function AdminPage() {
         </button>
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="mt-4">
+          <FormErrorAlert {...error} />
+        </div>
+      )}
 
       <div className="mt-6 space-y-4">
         {loading ? (
