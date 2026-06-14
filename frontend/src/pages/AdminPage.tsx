@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 import { formatApiError } from '../lib/apiErrors'
 import { FormErrorAlert } from '../components/FormErrorAlert'
+import { formatEuropeanDateTime } from '../lib/dateTime'
 import { formatAedPrimaryName } from '../lib/aedLabel'
 import type { AED, Report } from '../types'
 import { CardSkeleton } from '../components/Skeleton'
@@ -13,7 +14,7 @@ import { AccessibilityBadge } from '../components/AccessibilityBadge'
 type AdminTab = 'aeds' | 'reports'
 
 export function AdminPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { isAdmin, loading: authLoading } = useAuth()
   const [tab, setTab] = useState<AdminTab>('aeds')
   const [pendingAeds, setPendingAeds] = useState<AED[]>([])
@@ -213,7 +214,7 @@ export function AdminPage() {
               >
                 <p className="text-xs text-slate-500">
                   {t('admin.submittedAt', {
-                    date: new Date(report.created_at).toLocaleString(),
+                    date: formatEuropeanDateTime(report.created_at, i18n.language),
                   })}
                 </p>
 
