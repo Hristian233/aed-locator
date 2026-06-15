@@ -22,7 +22,7 @@ def test_submit_aed_rejects_more_than_max_multipart_images(local_client: TestCli
     data = {
         "latitude": "42.6977",
         "longitude": "23.3219",
-        "report_type": "aed_issue",
+        "report_type": "new_location",
         "description": "Too many photos attached.",
     }
 
@@ -43,7 +43,7 @@ def test_submit_aed_rejects_more_than_max_multipart_images_on_gcs(gcs_settings) 
     data = {
         "latitude": "42.6977",
         "longitude": "23.3219",
-        "report_type": "aed_issue",
+        "report_type": "new_location",
         "description": "Too many photos attached.",
     }
 
@@ -61,7 +61,7 @@ def test_submit_aed_rejects_more_than_max_temp_object_keys(gcs_settings) -> None
     data = {
         "latitude": 42.6977,
         "longitude": 23.3219,
-        "report_type": "aed_issue",
+        "report_type": "new_location",
         "description": "Too many temp keys attached.",
         "image_temp_object_key": [f"inbox/temp{index}" for index in range(max_images + 1)],
         "image_content_type": ["image/jpeg"] * (max_images + 1),

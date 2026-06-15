@@ -5,13 +5,14 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.api.deps import get_aed_service, get_current_user_optional
+from app.api.http_errors import not_found, raise_bad_request
+from app.core.api_errors import ApiValidationError
 from app.core.config import get_settings
-from app.core.upload_limits import ImageTooManyError, image_too_many_detail
+from app.core.upload_limits import image_too_many_detail
 from app.models.user import User
 from app.schemas.aed import AEDCreate, AEDListResponse, AEDResponse, NearestAEDQuery, SubmissionResult
 from app.schemas.aed import TempImageUploadMeta
 from app.services.aed_service import AEDService, LocalImageUpload
-from app.services.image_validation import ImageValidationError
 from app.services.storage_service import StorageService
 
 router = APIRouter(prefix="/aeds", tags=["aeds"])
@@ -70,7 +71,7 @@ async def get_aed(
 ) -> AEDResponse:
     aed = await aed_service.get_aed(aed_id)
     if not aed:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="AED not found")
+        raise not_found("aed_not_found", "AED not found")
     return aed
 
 
@@ -97,6 +98,9 @@ async def submit_aed(
     image_content_type: list[str] = Form(default=[]),
     image_content_length: list[int] = Form(default=[]),
 ) -> SubmissionResult:
+    if report_type == "aed_issue":
+        raise_bad_request(ApiValidationError("wrong_report_endpoint"))
+
     settings = get_settings()
     storage = StorageService(settings)
     local_images: list[LocalImageUpload] = []
@@ -125,18 +129,15 @@ async def submit_aed(
         )
 
     if settings.uses_gcs_storage and upload_files:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="Upload photos using signed URLs, then submit image_temp_object_key for each image.",
-        )
+        raise_bad_request(ApiValidationError("gcs_upload_required"))
 
     for upload_file in upload_files:
         content_type = upload_file.content_type or ""
         content = await upload_file.read()
         try:
             storage.validate_upload_metadata(content_type, len(content))
-        except ImageValidationError as exc:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        except Exception as exc:
+            raise_bad_request(exc)
         local_images.append(LocalImageUpload(content=content, content_type=content_type))
 
     data = AEDCreate(
@@ -159,10 +160,5 @@ async def submit_aed(
             local_images=local_images,
             temp_images=temp_images,
         )
-    except ImageTooManyError as exc:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail=image_too_many_detail(exc.max_images),
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        raise_bad_request(exc)

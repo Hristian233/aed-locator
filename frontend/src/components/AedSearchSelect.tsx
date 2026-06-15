@@ -103,21 +103,41 @@ export function AedSearchSelect({
 
   return (
     <div ref={rootRef} className="relative">
-      <input
-        type="text"
-        role="combobox"
-        aria-expanded={open}
-        aria-controls={listboxId}
-        aria-autocomplete="list"
-        aria-haspopup="listbox"
-        value={displayValue}
-        onChange={(event) => handleInputChange(event.target.value)}
-        onFocus={() => setOpen(true)}
-        onKeyDown={handleKeyDown}
-        disabled={loading || Boolean(loadError)}
-        placeholder={t('report.relatedAedSearchPlaceholder')}
-        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
-      />
+      <div className="relative mt-1">
+        <input
+          type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          value={displayValue}
+          onChange={(event) => handleInputChange(event.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          disabled={loading || Boolean(loadError)}
+          placeholder={t('report.relatedAedSearchPlaceholder')}
+          className="w-full rounded-xl border border-slate-200 py-2.5 pl-3 pr-10 text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
+        />
+        <span
+          className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 ${
+            loading || loadError ? 'text-slate-300' : 'text-slate-400'
+          }`}
+          aria-hidden="true"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className={`h-5 w-5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.94a.75.75 0 111.08 1.04l-4.24 4.5a.75.75 0 01-1.08 0l-4.24-4.5a.75.75 0 01.02-1.06z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </span>
+      </div>
 
       {loading && (
         <p className="mt-1 text-xs text-slate-500">{t('report.relatedAedLoading')}</p>

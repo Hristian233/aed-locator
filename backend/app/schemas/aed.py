@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.core.api_errors import SubmissionWarning
+
 
 AccessibilityTypeLiteral = Literal["24_7", "business_hours", "restricted_access"]
 ReportTypeLiteral = Literal["new_location", "aed_issue"]
@@ -74,12 +76,12 @@ class NearestAEDQuery(BaseModel):
 
 class SubmissionResult(BaseModel):
     aed: AEDResponse
-    warnings: list[str] = []
+    warnings: list[SubmissionWarning] = []
     duplicate_of_id: int | None = None
 
     @field_validator("warnings", mode="before")
     @classmethod
-    def default_warnings(cls, v: list[str] | None) -> list[str]:
+    def default_warnings(cls, v: list | None) -> list:
         return v or []
 
 

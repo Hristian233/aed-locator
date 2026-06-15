@@ -1,4 +1,12 @@
-import type { AED, AEDListResponse, AuthResponse, SubmissionResult } from '../types'
+import type {
+  AED,
+  AEDListResponse,
+  AuthResponse,
+  Report,
+  ReportListResponse,
+  ReportSubmissionResult,
+  SubmissionResult,
+} from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -24,6 +32,7 @@ export class ApiError extends Error {
   readonly isNetworkError: boolean
   readonly code?: string
   readonly maxImages?: number
+  readonly params: Record<string, unknown>
 
   constructor(
     message: string,
@@ -31,6 +40,7 @@ export class ApiError extends Error {
     isNetworkError = false,
     code?: string,
     maxImages?: number,
+    params: Record<string, unknown> = {},
   ) {
     super(message)
     this.name = 'ApiError'
@@ -38,6 +48,7 @@ export class ApiError extends Error {
     this.isNetworkError = isNetworkError
     this.code = code
     this.maxImages = maxImages
+    this.params = params
   }
 }
 
@@ -57,15 +68,18 @@ type ApiErrorDetail = {
   code?: string
   message?: string
   max_images?: number
+  max_image_bytes?: number
+  [key: string]: unknown
 }
 
 function parseErrorDetail(detail: unknown): {
   message: string
   code?: string
   maxImages?: number
+  params: Record<string, unknown>
 } {
   if (typeof detail === 'string') {
-    return { message: detail }
+    return { message: detail, params: {} }
   }
 
   if (Array.isArray(detail)) {
@@ -77,7 +91,7 @@ function parseErrorDetail(detail: unknown): {
         return String(item)
       })
       .join(' ')
-    return { message }
+    return { message, params: {} }
   }
 
   if (detail && typeof detail === 'object') {
@@ -88,14 +102,18 @@ function parseErrorDetail(detail: unknown): {
         : typeof parsed.code === 'string'
           ? parsed.code
           : JSON.stringify(detail)
+    const params: Record<string, unknown> = { ...parsed }
+    delete params.code
+    delete params.message
     return {
       message,
       code: typeof parsed.code === 'string' ? parsed.code : undefined,
       maxImages: typeof parsed.max_images === 'number' ? parsed.max_images : undefined,
+      params,
     }
   }
 
-  return { message: String(detail) }
+  return { message: String(detail), params: {} }
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -127,6 +145,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       response.status >= 500,
       parsed.code,
       parsed.maxImages,
+      parsed.params,
     )
   }
 
@@ -233,14 +252,26 @@ export const api = {
   submitAed: (form: FormData) =>
     request<SubmissionResult>('/api/v1/aeds', { method: 'POST', body: form }),
 
+  submitReport: (form: FormData) =>
+    request<ReportSubmissionResult>('/api/v1/reports', { method: 'POST', body: form }),
+
   pendingAeds: (page = 1) =>
     request<AEDListResponse>(`/api/v1/admin/aeds/pending?page=${page}&page_size=20`),
+
+  pendingReports: (page = 1) =>
+    request<ReportListResponse>(`/api/v1/admin/reports/pending?page=${page}&page_size=20`),
 
   verifyAed: (id: number) =>
     request<AED>(`/api/v1/admin/aeds/${id}/verify`, { method: 'POST' }),
 
   rejectAed: (id: number) =>
     request<AED>(`/api/v1/admin/aeds/${id}/reject`, { method: 'POST' }),
+
+  resolveReport: (id: number) =>
+    request<Report>(`/api/v1/admin/reports/${id}/resolve`, { method: 'POST' }),
+
+  dismissReport: (id: number) =>
+    request<Report>(`/api/v1/admin/reports/${id}/dismiss`, { method: 'POST' }),
 }
 
 export function navigationUrl(lat: number, lon: number, label?: string): string {
