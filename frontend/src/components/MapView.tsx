@@ -7,17 +7,15 @@ import { AccessibilityBadge } from "./AccessibilityBadge";
 
 const DEFAULT_CENTER = { lat: 42.6977, lng: 23.3219 };
 
+// ~28px is a common on-map POI icon size (Google examples often use 20–32px).
+const AED_MARKER_SIZE = 28;
+const AED_MARKER_Z_INDEX = 1;
+const USER_MARKER_Z_INDEX = 1000;
+
 const aedMarkerIcon: google.maps.Icon = {
-  url:
-    "data:image/svg+xml;charset=UTF-8," +
-    encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28">' +
-        '<circle cx="14" cy="14" r="11" fill="#0d9488" stroke="white" stroke-width="3"/>' +
-        '<text x="14" y="18" text-anchor="middle" fill="white" font-size="12" font-weight="700">+</text>' +
-        "</svg>",
-    ),
-  scaledSize: { width: 28, height: 28 } as google.maps.Size,
-  anchor: { x: 14, y: 14 } as google.maps.Point,
+  url: "/aed-marker.png",
+  scaledSize: { width: AED_MARKER_SIZE, height: AED_MARKER_SIZE } as google.maps.Size,
+  anchor: { x: AED_MARKER_SIZE / 2, y: AED_MARKER_SIZE / 2 } as google.maps.Point,
 };
 
 function MapController({
@@ -98,21 +96,23 @@ function GoogleMapView({
           selected={selected}
           panToSelection={panToSelection}
         />
-        {userPosition && (
-          <Marker
-            position={{ lat: userPosition[0], lng: userPosition[1] }}
-            title={t("home.youAreHere")}
-          />
-        )}
         {aeds.map((aed) => (
           <Marker
             key={aed.id}
             position={{ lat: aed.latitude, lng: aed.longitude }}
             icon={aedMarkerIcon}
+            zIndex={AED_MARKER_Z_INDEX}
             title={aed.address ?? t("aed.fallbackName", { id: aed.id })}
             onClick={() => onSelect?.(aed)}
           />
         ))}
+        {userPosition && (
+          <Marker
+            position={{ lat: userPosition[0], lng: userPosition[1] }}
+            zIndex={USER_MARKER_Z_INDEX}
+            title={t("home.youAreHere")}
+          />
+        )}
         {selected && !suppressInfoWindow && (
           <InfoWindow
             position={{ lat: selected.latitude, lng: selected.longitude }}
