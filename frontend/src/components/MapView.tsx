@@ -87,9 +87,7 @@ function GoogleMapView({
         defaultZoom={14}
         gestureHandling="greedy"
         mapId={mapId || undefined}
-        fullscreenControl={false}
-        mapTypeControl={false}
-        streetViewControl={false}
+        disableDefaultUI
       >
         <MapController
           userPosition={userPosition}
