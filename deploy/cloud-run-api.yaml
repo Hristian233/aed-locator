@@ -22,7 +22,7 @@ spec:
             - containerPort: 8080
           env:
             - name: ENVIRONMENT
-              value: production
+              value: staging
             # GCS buckets auto-resolve from ENVIRONMENT (prod -> aed-locator-prod-*).
             # Override with GCS_TEMP_BUCKET / GCS_IMAGES_BUCKET if needed.
             - name: DATABASE_URL
