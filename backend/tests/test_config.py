@@ -61,3 +61,19 @@ def test_explicit_gcs_buckets_override_environment_defaults(monkeypatch) -> None
 
     assert settings.gcs_temp_bucket == "custom-temp-bucket"
     assert settings.gcs_images_bucket == "custom-images-bucket"
+
+
+def test_development_enables_docs_only(monkeypatch) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None)
+
+    assert settings.docs_enabled is True
+
+
+def test_staging_disables_docs(monkeypatch) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "staging")
+    get_settings.cache_clear()
+    settings = Settings(_env_file=None)
+
+    assert settings.docs_enabled is False
