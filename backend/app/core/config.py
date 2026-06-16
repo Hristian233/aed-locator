@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     def max_upload_bytes(self) -> int:
         return self.max_image_bytes
 
+    @property
+    def docs_enabled(self) -> bool:
+        return self.environment == "development"
+
 
 @lru_cache
 def get_settings() -> Settings:
