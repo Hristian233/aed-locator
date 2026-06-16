@@ -19,17 +19,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute(
-        """
-        DO $$ BEGIN
-            CREATE TYPE reportstatus AS ENUM (
-                'pending', 'reviewed', 'dismissed', 'resolved'
-            );
-        EXCEPTION
-            WHEN duplicate_object THEN NULL;
-        END $$;
-        """
-    )
     bind = op.get_bind()
     reports_exists = bind.execute(
         sa.text("SELECT to_regclass('public.reports') IS NOT NULL")
@@ -61,7 +50,6 @@ def upgrade() -> None:
                 "dismissed",
                 "resolved",
                 name="reportstatus",
-                create_type=False,
             ),
             nullable=False,
             server_default="pending",
