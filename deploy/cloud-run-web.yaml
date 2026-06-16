@@ -14,4 +14,4 @@ spec:
             - containerPort: 8080
           env:
             - name: VITE_API_URL
-              value: https://aed-locator-api-XXXX.run.app
+              value: https://aed-locator-api-345086033807.europe-west3.run.app
