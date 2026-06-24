@@ -92,11 +92,27 @@ def process_image_request(request: Request) -> tuple[Any, int]:
 
     assert params is not None
     client = storage.Client()
+    declared_length: int | None = None
+    expected_length = params["expected_content_length"]
+    if expected_length is not None:
+        try:
+            declared_length = int(expected_length)
+        except (TypeError, ValueError):
+            return _error("Invalid content_length value")
 
     try:
         temp_blob = client.bucket(params["temp_bucket"]).blob(params["temp_object_key"])
         if not temp_blob.exists():
             return _error("Temporary upload was not found. Please upload the image again.")
+        temp_blob.reload()
+        if temp_blob.size is not None:
+            actual_size = int(temp_blob.size)
+            if actual_size > params["max_bytes"]:
+                temp_blob.delete()
+                return _error(f"Image exceeds maximum size of {params['max_bytes']} bytes")
+            if declared_length is not None and declared_length != actual_size:
+                temp_blob.delete()
+                return _error("Uploaded image size does not match declared size")
         raw = temp_blob.download_as_bytes()
     except Exception as exc:
         return _error(f"Could not read temporary upload: {exc}", status=500)
@@ -105,13 +121,8 @@ def process_image_request(request: Request) -> tuple[Any, int]:
     if expected_type and expected_type not in params["allowed_content_types"]:
         return _error(f"Unsupported content type: {expected_type}")
 
-    expected_length = params["expected_content_length"]
-    if expected_length is not None:
-        try:
-            if int(expected_length) != len(raw):
-                return _error("Uploaded image size does not match declared size")
-        except (TypeError, ValueError):
-            return _error("Invalid content_length value")
+    if declared_length is not None and declared_length != len(raw):
+        return _error("Uploaded image size does not match declared size")
 
     try:
         processed = _process_image(

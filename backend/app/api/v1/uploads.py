@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.http_errors import raise_bad_request
+from app.api.v1.aeds import limiter
 from app.core.api_errors import ApiValidationError
 from app.core.config import get_settings
 from app.core.upload_limits import ImageTooManyError, image_too_many_detail
@@ -69,7 +70,9 @@ def _create_signed_upload(
 
 
 @router.post("/signed-url", response_model=SignedUploadResponse)
+@limiter.limit(get_settings().rate_limit_reports)
 async def create_signed_upload_url(
+    request: Request,
     payload: SignedUploadRequest,
     storage: Annotated[StorageService, Depends(get_storage_service)],
 ) -> SignedUploadResponse:
@@ -84,7 +87,9 @@ async def create_signed_upload_url(
 
 
 @router.post("/signed-urls", response_model=SignedUploadBatchResponse)
+@limiter.limit(get_settings().rate_limit_reports)
 async def create_signed_upload_urls(
+    request: Request,
     payload: SignedUploadBatchRequest,
     storage: Annotated[StorageService, Depends(get_storage_service)],
 ) -> SignedUploadBatchResponse:

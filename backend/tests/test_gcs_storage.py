@@ -57,3 +57,31 @@ def test_cloud_run_signing_kwargs_fail_without_service_account_email(
     with patch("app.services.gcs_storage.google.auth.default", return_value=(credentials, "project")):
         with pytest.raises(GCSStorageError, match="service account"):
             gcs_service._cloud_run_signing_kwargs()
+
+
+def test_signed_upload_url_binds_declared_content_length(
+    gcs_service: GCSStorageService,
+) -> None:
+    blob = MagicMock()
+    blob.generate_signed_url.return_value = "https://storage.example/signed"
+    bucket = MagicMock()
+    bucket.blob.return_value = blob
+    client = MagicMock()
+    client.bucket.return_value = bucket
+    gcs_service._client = client
+
+    with patch.object(gcs_service, "_cloud_run_signing_kwargs", return_value={}):
+        upload_url, object_key, expires_in = gcs_service.create_signed_upload_url(
+            content_type="image/jpeg",
+            content_length=5000,
+        )
+
+    assert upload_url == "https://storage.example/signed"
+    assert object_key
+    assert expires_in == gcs_service.settings.gcs_signed_upload_ttl_seconds
+    client.bucket.assert_called_once_with("aed-locator-dev-inbox")
+    blob.generate_signed_url.assert_called_once()
+    signed_kwargs = blob.generate_signed_url.call_args.kwargs
+    assert signed_kwargs["method"] == "PUT"
+    assert signed_kwargs["content_type"] == "image/jpeg"
+    assert signed_kwargs["headers"] == {"Content-Length": "5000"}

@@ -86,6 +86,7 @@ class GCSStorageService:
                 expiration=timedelta(seconds=self.settings.gcs_signed_upload_ttl_seconds),
                 method="PUT",
                 content_type=content_type,
+                headers={"Content-Length": str(content_length)},
             )
         except (GCSStorageError, ImageValidationError) as exc:
             if isinstance(exc, ImageValidationError):
