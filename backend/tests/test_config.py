@@ -27,6 +27,10 @@ def test_development_defaults_use_local_storage_and_dev_buckets(monkeypatch) -> 
     assert settings.storage_backend == "local"
     assert settings.gcs_temp_bucket == "aed-locator-dev-inbox"
     assert settings.gcs_images_bucket == "aed-locator-dev-aed-images"
+    assert (
+        settings.gcs_images_public_url_base
+        == "https://storage.googleapis.com/aed-locator-dev-aed-images"
+    )
     assert settings.max_image_bytes == 10 * 1024 * 1024
 
 
@@ -49,6 +53,10 @@ def test_production_environment_resolves_prod_gcs_buckets(monkeypatch) -> None:
     assert settings.environment == "production"
     assert settings.gcs_temp_bucket == "aed-locator-prod-inbox"
     assert settings.gcs_images_bucket == "aed-locator-prod-aed-images"
+    assert (
+        settings.gcs_images_public_url_base
+        == "https://storage.googleapis.com/aed-locator-prod-aed-images"
+    )
 
 
 def test_explicit_gcs_buckets_override_environment_defaults(monkeypatch) -> None:
@@ -61,6 +69,22 @@ def test_explicit_gcs_buckets_override_environment_defaults(monkeypatch) -> None
 
     assert settings.gcs_temp_bucket == "custom-temp-bucket"
     assert settings.gcs_images_bucket == "custom-images-bucket"
+    assert (
+        settings.gcs_images_public_url_base
+        == "https://storage.googleapis.com/custom-images-bucket"
+    )
+
+
+def test_explicit_gcs_public_url_base_can_be_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("STORAGE_BACKEND", "gcs")
+    monkeypatch.setenv("GCS_IMAGES_BUCKET", "private-images-bucket")
+    monkeypatch.setenv("GCS_IMAGES_PUBLIC_URL_BASE", "")
+    get_settings.cache_clear()
+
+    settings = get_settings()
+
+    assert settings.gcs_images_bucket == "private-images-bucket"
+    assert settings.gcs_images_public_url_base == ""
 
 
 def test_development_enables_docs_only(monkeypatch) -> None:

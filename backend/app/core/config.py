@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     gcs_temp_bucket: str = ""
     gcs_images_bucket: str = ""
-    gcs_images_public_url_base: str = "https://storage.googleapis.com/aed-locator-dev-images"
+    gcs_images_public_url_base: str | None = None
     gcs_signed_upload_ttl_seconds: int = 900
     gcs_signed_read_ttl_seconds: int = 3600
     image_processor_url: str = "https://aed-image-processor-dev-iuhz7yxnaa-uc.a.run.app"
@@ -55,6 +55,10 @@ class Settings(BaseSettings):
             self.gcs_temp_bucket = self._default_gcs_temp_bucket()
         if not self.gcs_images_bucket.strip():
             self.gcs_images_bucket = self._default_gcs_images_bucket()
+        if self.gcs_images_public_url_base is None:
+            self.gcs_images_public_url_base = (
+                f"https://storage.googleapis.com/{self.gcs_images_bucket}"
+            )
         return self
 
     def _gcs_env_suffix(self) -> str:
