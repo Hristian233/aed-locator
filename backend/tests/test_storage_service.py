@@ -2,7 +2,7 @@ from app.core.config import Settings
 from app.services.storage_service import StorageService
 
 
-def test_resolve_display_url_uses_placeholder_public_base_for_gcs() -> None:
+def test_resolve_display_url_uses_public_base_for_gcs() -> None:
     settings = Settings(
         storage_backend="gcs",
         gcs_temp_bucket="aed-locator-dev-inbox",
@@ -14,6 +14,20 @@ def test_resolve_display_url_uses_placeholder_public_base_for_gcs() -> None:
     url = storage.resolve_display_url("aed-images/photo.webp")
 
     assert url == "https://storage.googleapis.com/aed-locator-dev-images/aed-images/photo.webp"
+
+
+def test_resolve_display_url_uses_resolved_bucket_public_base_for_gcs() -> None:
+    settings = Settings(
+        environment="production",
+        storage_backend="gcs",
+        gcs_temp_bucket="",
+        gcs_images_bucket="",
+    )
+    storage = StorageService(settings)
+
+    url = storage.resolve_display_url("aed-images/photo.webp")
+
+    assert url == "https://storage.googleapis.com/aed-locator-prod-aed-images/aed-images/photo.webp"
 
 
 def test_resolve_display_url_keeps_local_upload_paths() -> None:

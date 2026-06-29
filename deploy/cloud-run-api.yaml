@@ -37,8 +37,8 @@ spec:
                   key: secret_key
             - name: STORAGE_BACKEND
               value: gcs
-            - name: GCS_IMAGES_PUBLIC_URL_BASE
-              value: "https://storage.googleapis.com/aed-locator-dev-images"
+            # GCS_IMAGES_PUBLIC_URL_BASE defaults to the resolved GCS_IMAGES_BUCKET.
+            # Set it only when serving images from a custom CDN/public base.
             - name: GCS_SIGNED_UPLOAD_TTL_SECONDS
               value: "900"
             - name: GCS_SIGNED_READ_TTL_SECONDS

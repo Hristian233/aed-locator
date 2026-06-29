@@ -48,7 +48,7 @@ class StorageService:
         if not self.settings.uses_gcs_storage or stored_value.startswith("/"):
             return stored_value
 
-        public_base = self.settings.gcs_images_public_url_base.strip()
+        public_base = (self.settings.gcs_images_public_url_base or "").strip()
         if public_base:
             return f"{public_base.rstrip('/')}/{stored_value.lstrip('/')}"
 
